@@ -1,9 +1,10 @@
 name: build-cpp
 
 on:
-  push:
-  pull_request:
-
+    push:
+      branches: [compile]
+    pull_request:
+      branches: [compile]
 jobs:
   build:
     strategy:
@@ -24,7 +25,7 @@ jobs:
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             g++ cppsp_compiler.cpp  -Os -s  -std=c++17 -o cppsp_compiler_linux -static
           else
-            clang++ cppsp_compiler.cpp   -Os -s  -std=c++17 -o cppsp_compiler_mac -static
+            clang++ cppsp_compiler.cpp -Os -s  -std=c++17 -o cppsp_compiler_mac -static
           fi
 
       - name: Upload artifact
