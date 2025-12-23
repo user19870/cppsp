@@ -32,3 +32,8 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
            zip binaries.zip cppsp_compiler_linux cppsp_compiler_mac
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name:  binary
+          path: bin
