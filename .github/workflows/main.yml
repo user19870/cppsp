@@ -15,16 +15,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install compiler (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y g++
+    #  - name: Install compiler (Linux)
+     #   if: matrix.os == 'ubuntu-latest'
+        #run: sudo apt-get update && sudo apt-get install -y g++
 
       - name: Compile
         run: |
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            g++ cppsp_compiler.cpp -static -Os   -std=c++17 -o cppsp_compiler_linux
+            g++ cppsp_compiler.cpp  -Os -s  -std=c++17 -o cppsp_compiler_linux -static
           else
-            clang++ cppsp_compiler.cpp -static -Os   -std=c++17 -o cppsp_compiler_mac
+            clang++ cppsp_compiler.cpp   -Os -s  -std=c++17 -o cppsp_compiler_mac -static
           fi
 
       - name: Upload artifact
