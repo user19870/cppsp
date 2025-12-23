@@ -6,7 +6,7 @@ on:
     pull_request:
       branches: [compile]
 jobs:
-  build:
+  compile:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
