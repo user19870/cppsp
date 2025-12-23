@@ -22,13 +22,13 @@ jobs:
       - name: Compile
         run: |
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            g++ cppsp_compiler.cpp -Os -s -std=c++17 -o cppsp_compiler_linux
+            g++ cppsp_compiler.cpp -static -Os -s -std=c++17 -o cppsp_compiler_linux
           else
-            clang++ cppsp_compiler.cpp -Os -s -std=c++17 -o cppsp_compiler_mac
+            clang++ cppsp_compiler.cpp -static -Os -s -std=c++17 -o cppsp_compiler_mac
           fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}-binary
+          name: binary
           path: cppsp_compiler_*
