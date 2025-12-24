@@ -1,0 +1,11 @@
+@command("-mtune=native   -fomit-frame-pointer -static-libgcc   -ffunction-sections -fdata-sections -Wl,--gc-sections  -Wl,--as-needed  -s  -Wl,--strip-all  -Os -m64")
+import iostream,vector
+@function<<using namespace std;>>
+print("12\n"," ",1," ",2.1,true,false," ")
+print( "abc")
+print(1,"\n") //abv
+//print(1.1)
+@inject(int x=1;int y=2;int z=3; auto is_bool = [](const std::string& s){ return s == "true" || s == "false";};)
+input(x,y,z)
+@function<<class cls{vector< string> cars = {"Volvo", "BMW", "Ford", "Mazda"};};>>
+print(x+y+z)

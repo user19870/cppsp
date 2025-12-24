@@ -1,0 +1,66 @@
+# Use LLVM as a base and customize from there
+BasedOnStyle: LLVM
+Language: Cpp
+
+# Indentation and spacing
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 8
+ColumnLimit: 80
+AccessModifierOffset: -4
+NamespaceIndentation: All
+IndentCaseLabels: true
+IndentGotoLabels: false
+IndentPPDirectives: AfterHash
+
+# Braces and layout
+BreakBeforeBraces: Allman
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+
+# Spaces
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceInEmptyParentheses: false
+SpaceAfterCStyleCast: false
+SpaceAfterTemplateKeyword: true
+SpacesInParentheses: false
+SpacesInAngles: false
+SpacesInSquareBrackets: false
+SpacesInCStyleCastParentheses: false
+SpacesInContainerLiterals: false
+SpaceBeforeAssignmentOperators: true
+
+# Pointers and references
+DerivePointerAlignment: false
+PointerAlignment: Left     # "int* ptr" rather than "int *ptr"
+ReferenceAlignment: Left
+
+# Includes
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^<.*>$'
+    Priority: 1
+  - Regex: '^".*"$'
+    Priority: 2
+SortIncludes: true
+
+# Line breaking
+BreakConstructorInitializers: BeforeColon
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+BinPackParameters: false
+BinPackArguments: false
+PenaltyBreakBeforeFirstCallParameter: 1000000
+PenaltyReturnTypeOnItsOwnLine: 60
+
+# C++ specific
+Standard: Latest
+Cpp11BracedListStyle: true
+AlignConsecutiveAssignments: Consecutive
+AlignConsecutiveDeclarations: Consecutive
+AlignOperands: Align
+AlignAfterOpenBracket: Align

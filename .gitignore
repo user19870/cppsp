@@ -1,0 +1,12 @@
+.vs/
+build/
+bin/
+
+**/Thumbs.db
+**/desktop.ini
+
+*.swp
+*~
+
+examples/*
+!examples/*.cppsp
