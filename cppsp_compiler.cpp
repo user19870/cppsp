@@ -8,7 +8,14 @@
 #include <cstdlib>
 #include <unordered_map>
 #include <functional>
-
+bool isWindows=false;bool isMac=false;bool isLinux =false;
+ #if defined(_WIN32) || defined(_WIN64) 
+ #define isWindows 1 
+ #elif defined(__APPLE__) && defined(__MACH__) 
+ #define isMac 1 
+ #elif defined(__linux__) 
+ #define isLinux 1 
+ #endif
 //檢查dll依賴:objdump -p cppsp_compiler.exe | findstr ".dll" 
 
 namespace fs = std::filesystem;
@@ -200,15 +207,17 @@ std::string parseIni(const std::string& path, const std::string& flag) {
     std::ifstream infile(path);
     if (!infile) return "";
 
-    std::string line;
-    std::getline(infile, line);
+    std::string line; 
+    std::string result;
+    while(std::getline(infile, line)){
     std::stringstream ss(line);
     std::string token;
-    std::string result;
     while (std::getline(ss, token, ',')) {
         if (!token.empty()) {
-            result += flag + "\"" + token + "\" ";
+            result +=  flag+ "\"" + token + "\" ";
         }
+    }
+    
     }
     return result;
 }
@@ -248,6 +257,7 @@ int main(int argc, char* argv[]) {
         double iorf = std::stod(cur);
         if (iorf == (int)iorf)   out += "{ int _t = " + cur + "; printf(\"%d\", _t); }\n";
        else out += "{ double _t = " + cur + "; printf(\"%g\", _t); }\n"; }
+       else if(cur[0]== 'L') out +=(Ifiostream)? "std::wcout<<"+cur+";\n" :"wprintf("+cur+");\n";
        else if(Ifiostream==true) out +="std::cout<<"+cur+";\n";
        else {  out += "printf(" + cur + ");\n";}
 }
@@ -367,8 +377,8 @@ if (!comment && importline.find("import ") != std::string::npos) {
     outfile << "\nreturn 0;\n}\n";
      if(enableoverwrite) outfile << "*/";
     outfile.close();
-
-    fs::path exePath = cpsPath.parent_path() / (cpsPath.stem().string() );// .exe後綴 : + ".exe");
+std::string local=(isMac || isLinux)? "./":"";
+    fs::path exePath = cpsPath.parent_path() / (local+cpsPath.stem().string() );// .exe後綴 : + ".exe");
 
     // 讀 include.ini 和 lib.ini
     std::string includeFlags = parseIni("include.ini", "-I");
