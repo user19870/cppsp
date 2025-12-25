@@ -34,7 +34,7 @@ lib.ini:C:\...\lib1,c:\...\lib2
 ＠command("-f1 -f2 ..... -f5") 
 ＠command("-f6 -f7 ....-f10") 
 ```
-under ＃overwritender ＃overwrite
+with ＃overwrite command
 ```
 ＠command("g++ -Os -m64 -nostdlib  -shared ") 
 ＠command(" -o dll.dll dll.cpp") 
