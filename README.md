@@ -1,5 +1,5 @@
 # cppsp<img src="cppsp.png" width="5%" alt="cppsp logo"/>
-cppsp -a transpiled language base on c++
+cppsp -a transpiled script-like language base on c++
 ## Install
 Download the cppsp_compiler.exe or compiler the sourcecode by yourself
 * Requirement:prepare your own c++ compiler and set it's folder to environment path(environment variable)
