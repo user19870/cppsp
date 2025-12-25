@@ -5,6 +5,7 @@ Download the cppsp_compiler.exe or compiler the sourcecode by yourself
 * Requirement:prepare your own c++ compiler and set it's folder to environment path(environment variable)
 * Requirement:a 64bits c++ compiler to make sure exe can be open
 * Optional: put the folder path of exe/elf/mach-o to environment
+* remember delete _mac/_linux to make cppsp_compiler works
 ## Usage
 * Use cmd or other console to compiler .cppsp file:
 cppsp_compiler(if not in environment path:.\cppsp_compiler.exe or c:\...\cppsp_compiler.exe) script.cppsp
