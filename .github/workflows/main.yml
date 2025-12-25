@@ -1,0 +1,33 @@
+name: build-cpp
+
+on: 
+ workflow_dispatch:
+jobs:
+  compile:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+    #  - name: Install compiler (Linux)
+     #   if: matrix.os == 'ubuntu-latest'
+        #run: sudo apt-get update && sudo apt-get install -y g++
+
+      - name: Compile
+        run: |
+         if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+          g++ cppsp_compiler.cpp -Os -s -std=c++17 -o cppsp_compiler_linux.delete _linux -static
+          else
+           clang++ cppsp_compiler.cpp -Os -std=c++17 -o cppsp_compiler_mac.delete _mac
+            fi
+
+ 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name:  ${{ matrix.os }}-binary
+          path: cppsp_compiler_*
