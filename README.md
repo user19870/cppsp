@@ -6,13 +6,26 @@ Download the cppsp_compiler.exe or compiler the sourcecode by yourself
 * Requirement:a 64bits c++ compiler to make sure exe can be open
 * Optional: put the folder path of exe/elf/mach-o to environment
 * remember delete _mac/_linux to make cppsp_compiler works
+* (Optional) rename cppsp_compiler.exe(or cppsp_compiler) to any name you like to change compile command like:cppsp、abcdef....
+* Install from cmd/console:
+Windows:
+```
+  curl -L -o cppsp_compiler.exe https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_compiler.exe
+```
+Linux:
+```
+  curl -L -o cppsp_compiler https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_compiler_linux.delete_linux
+```
+Mac:
+```
+  curl -L -o cppsp_compiler "https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_compiler_mac.delete_mac"
+```
 ## Usage
 * Use cmd or other console to compiler .cppsp file:
 cppsp_compiler(if not in environment path:.\cppsp_compiler.exe or c:\...\cppsp_compiler.exe) script.cppsp
 * Setting c++ include/lib folder by .ini file
 include.ini:C:\...\include1,c:\...\include2
 lib.ini:C:\...\lib1,c:\...\lib2
-* (Optional) rename cppsp_compiler.exe(or cppsp_compiler) to any name you like to change compile command like:cppsp、abcdef.... 
 ## Feature
 * can compile when there is only print("hello world") in .cppsp
 * can use almost c++ header by import
