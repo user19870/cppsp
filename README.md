@@ -12,7 +12,7 @@ cppsp_compiler(if not in environment path:.\cppsp_compiler.exe or c:\...\cppsp_c
 * Setting c++ include/lib folder by .ini file
 include.ini:C:\...\include1,c:\...\include2
 lib.ini:C:\...\lib1,c:\...\lib2
-* You can rename cppsp_compiler.exe(or cppsp_compiler) to any name you like to change compile command like:cppsp、abcdef.... 
+* (Optional) rename cppsp_compiler.exe(or cppsp_compiler) to any name you like to change compile command like:cppsp、abcdef.... 
 ## Feature
 * can compile when there is only print("hello world") in .cppsp
 * can use almost c++ header by import
