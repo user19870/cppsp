@@ -22,7 +22,7 @@ Download the cppsp_compiler.exe or compiler the sourcecode by yourself
 ```
 ## Usage
 * Use cmd or other console to compiler .cppsp file:
-cppsp_compiler(if not in environment path:.\cppsp_compiler.exe or c:\...\cppsp_compiler.exe) script.cppsp
+`cppsp_compiler(if not in environment path:.\cppsp_compiler.exe or c:\...\cppsp_compiler.exe) script.cppsp`
 * Setting c++ include/lib folder by .ini file
 include.ini:C:\...\include1,c:\...\include2
 lib.ini:C:\...\lib1,c:\...\lib2
