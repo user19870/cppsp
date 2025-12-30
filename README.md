@@ -37,7 +37,7 @@ lib.ini:C:\...\lib1,c:\...\lib2
 * `#overwrite`:make `@command()` overwrite g++ .... or clang++ compile command like `@command("g++ -Os -m64 -nostdlib  -shared   -o dll.dll dll.cpp")` and add "*/" in the end of int main(){..} but you'll need `＠funcion<</\*>>` to make comment work
 *  `#skipcompile` : skip g++/clang++ compile and directly run output
 * `import` :import header in c++ and accept import iostream,cstdio,x,y,.....
-* `@funcuion<<...>>`: inject everything(void()、int()、bool()、even #define and using namespace) in <<...>> to the space under #include above int main()
+* `@function<<...>>`: inject everything(void()、int()、bool()、even #define and using namespace) in <<...>> to the space under #include above int main()
    `@inject(...)` :inject everything in (...) to int main(){...}
 * `print()`: print content to console like print("12\n"," ",1," ",2.1,true,false," ")
 * `input()`: input data to variables,but need `@inject()` to declare varibles
