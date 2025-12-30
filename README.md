@@ -8,15 +8,15 @@ Download the cppsp_compiler.exe or compiler the sourcecode by yourself
 * remember delete _mac/_linux to make cppsp_compiler works
 * (Optional) rename cppsp_compiler.exe(or cppsp_compiler) to any name you like to change compile command like:cppsp、abcdef....
 * Install from cmd/console:
-Windows:
+#### Windows:
 ```
   curl -L -o cppsp_compiler.exe https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_compiler.exe
 ```
-Linux:
+#### Linux:
 ```
   curl -L -o cppsp_compiler https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_compiler_linux.delete_linux
 ```
-Mac:
+#### Mac:
 ```
   curl -L -o cppsp_compiler https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_compiler_mac.delete_mac
 ```
