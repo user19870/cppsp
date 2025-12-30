@@ -18,7 +18,7 @@ Linux:
 ```
 Mac:
 ```
-  curl -L -o cppsp_compiler "https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_compiler_mac.delete_mac"
+  curl -L -o cppsp_compiler https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_compiler_mac.delete_mac
 ```
 ## Usage
 * Use cmd or other console to compiler .cppsp file:
