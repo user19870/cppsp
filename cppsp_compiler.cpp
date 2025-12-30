@@ -238,7 +238,7 @@ auto is_number = [](const std::string& s){
     };
    
 int main(int argc, char* argv[]) {
-    bool enableclang =false;
+    bool enableclang =false;bool skipcompile=false;
     //註冊
     registerCommand("print","(",")", [](const std::string& args) {
     std::stringstream ss(args);
@@ -292,6 +292,7 @@ registerCommand("@function","<<",">>",  [](const std::string& args) {
 ////////
     if (argc < 2) {
         std::cerr << "Usage: cppsp_compiler(if not in environment path:.\\cppsp_compiler.exe or c:\\...\\cppsp_compiler.exe) script.cppsp\ninclude.ini:C:\\...\\include1,c:\\...\\include2\nlib.ini:C:\\...\\lib1,c:\\...\\lib2\n";
+        std::cerr << "(Optional) rename cppsp_compiler.exe(or cppsp_compiler) to any name you like to change compile command like:cppsp,abcdef....";
         return 1;
     }
 
@@ -372,6 +373,7 @@ if (!comment && importline.find("import ") != std::string::npos) {
         if(line.find("#useclang")!= std::string::npos){enableclang=true;}
         if(line.find("#usegcc")!= std::string::npos){enableclang=false;}
         if(line.find("#overwrite")!= std::string::npos){enableoverwrite=true;}
+        if(line.find("#skipcompile")!= std::string::npos){skipcompile=true;}
     }
 
     outfile << "\nreturn 0;\n}\n";
@@ -393,15 +395,18 @@ std::string local=(isMac || isLinux)? "./":"";
                              + includeFlags + " "
                              + libFlags;
     if(enableoverwrite) gppCommand = extraFlags + " " + includeFlags + " "  + libFlags;
-
-    std::cout << "Compiling: " << gppCommand << "\n";
-    int ret = system(gppCommand.c_str());
+     if( skipcompile){
+        gppCommand="";
+     }else{
+            std::cout << "Compiling: " << gppCommand << "\n";
+             int ret = system(gppCommand.c_str());
+     
 
     if (ret != 0) {
         std::cerr << "Compilation failed!\n";
         return 1;
     }
-
+} 
    if(!enableoverwrite) std::cout << "Compilation succeeded! Executable: " << exePath.string() << "\n";
    if(enableoverwrite) std::cout << "Compilation succeeded!\n";
      if(!enableoverwrite) int runexe= system(exePath.string().c_str());
