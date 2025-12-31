@@ -1,6 +1,6 @@
 # cppsp
 cppsp是一個轉譯式語言(原始碼轉原始碼)，可以把.cppsp檔案轉成.cpp並編譯、執行，是單人開發的實驗性語言，不適合大專案使用。此cppsp與c++ server pages無關。
-* [English](https://github.com/user19870/cppsp/blob/First/README.md)
+* [English](https://github.com/user19870/cppsp)
 * [中文](README_tw.md)
 ## 安裝
 * 準備c++編譯器(gcc/clang)並設定到環境變數，讓cppsp可以呼叫g++、clang++指令
