@@ -1,5 +1,7 @@
 # cppsp<img src="cppsp.png" width="5%" alt="cppsp logo"/>
 cppsp -a transpiled script-like language base on c++
+* [English](README.md)
+* [中文](.github/workflows/README_tw.md)
 ## Install
 Download the cppsp_compiler.exe or compiler the sourcecode by yourself
 * Requirement:prepare your own c++ compiler and set it's folder to environment path(environment variable)
