@@ -1,0 +1,7 @@
+import iostream,cstdlib,ctime
+#skipcompile//you have compiled it before,it can run exe/elf/mach-o directly
+@function<<int f(int n) {   return n < 2 ? n : f(n-1) + f(n-2);}>>
+@inject(srand((unsigned)time(NULL));   
+    int num=rand()%37+1;
+    int i=f(num);  )
+print(num,":",i)
