@@ -21,7 +21,7 @@ jobs:
         run: |
          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
           g++ cppsp_compiler.cpp -Os -s -std=c++17 -o cppsp_compiler_linux.delete_linux -static
-          g++ cppsp_compiler.cpp -Os -m32 -s -std=c++17 -o cppsp_compiler_linux32.delete_linux32 -static
+        
           else
            clang++ cppsp_compiler.cpp -Os -std=c++17 -o cppsp_compiler_mac.delete_mac
             fi
