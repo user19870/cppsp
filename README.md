@@ -36,11 +36,11 @@ lib.ini:C:\...\lib1,c:\...\lib2
 ## Keyword
 * `#useclang` or `#usegcc` : use clang++ or g++ compile command
 * `@command("...")`: add command when compile like:-Os、-m64
-* `#overwrite`:make `@command()` overwrite g++ .... or clang++ compile command like `@command("g++ -Os -m64 -nostdlib  -shared   -o dll.dll dll.cpp")` and add "*/" in the end of int main(){..} but you'll need `＠funcion<</\*>>` to make comment work
+* `#overwrite`:make `@command()` overwrite g++ .... or clang++ compile command like `@command("g++ -Os -m64 -nostdlib  -shared   -o dll.dll dll.cpp")` and add "*/"  after int main(){..} also add "/\*" in front of int main(){..} 
 *  `#skipcompile` : skip g++/clang++ compile and directly run output
 * `import` :import header in c++ and accept import iostream,cstdio,x,y,.....
 * `@function<<...>>`: inject everything(void()、int()、bool()、even #define and using namespace) in <<...>> to the space under #include above int main()
-   `@inject(...)` :inject everything in (...) to int main(){...}
+*  `@inject(...)` :inject everything in (...) to int main(){...}  ----`＠inject(....)`and `＠inject("....")` are both legal. ＠inject(....) belonging to line ast and ＠inject("....") belonging to token ast  but ＠inject(....) will be transpiled before ＠inject("....") and any keyword belonging to token ast.)
 * `print()`: print content to console like print("12\n"," ",1," ",2.1,true,false," ")
 * `input()`: input data to variables,but need `@inject()` to declare varibles
 * `//`:comment
