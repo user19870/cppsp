@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <cstdlib>
 #include <unordered_map>
+#include <unordered_set>
 #include <functional>
 bool isWindows=false;bool isMac=false;bool isLinux =false;
  #if defined(_WIN32) || defined(_WIN64) 
@@ -17,7 +18,8 @@ bool isWindows=false;bool isMac=false;bool isLinux =false;
  #define isLinux 1 
  #endif
 //檢查dll依賴:objdump -p cppsp_compiler.exe | findstr ".dll" 
-
+//備忘錄: 未來做token儲存.cppsp內容，用unorder；vector各種方法做出token分類如何關鍵字、關鍵字的()裡面參數、變數、數字、字串等，只掃描一次.cppsp檔案
+//之後直接讀取token
 namespace fs = std::filesystem;
 bool Ifiostream=0;bool commentInReg=false;
 // ====== 新增：萬用語法指令註冊器 ======
@@ -29,6 +31,370 @@ void registerCommand(const std::string& name,const std::string& start,const std:
     cpsCommands[name] = handler; 
      func_head_end[start]=end;
 }
+// ======token區域=======
+
+enum class TokenType {
+    ROOT,       // container 根節點，不算實際 token
+    BEGIN,  // ( 、 <<
+    END,     // ) 、 >>
+
+    IDENTIFIER, // 變數名稱
+    NUMBER,     // 數字
+    STRING,     // 字串
+    OPERATOR,   // 運算子+ - = += * /
+    TYPE,       // 資料型態int float bool string
+    SEPARATOR,  // 分隔符號: , ;
+
+    KEYWORD,    // 關鍵字: print println input @inject @function
+    COMMENT,    // 註解
+    UNKNOWN     // 未知
+
+};
+struct Token {
+    TokenType type;
+    std::string value;
+    size_t line_number;
+    std::vector<Token> children; // 用於括號、{}、<<>> 等內部 token
+};
+struct TokenizeState {  
+    int depth = 0;
+    bool inString = false;
+    bool inBlockComment = false;
+};
+TokenizeState state={0,false,false};
+bool isTypeKeyword(const std::string& s) {
+    static const std::unordered_set<std::string> typeKeywords = {
+        "int", "double", "float", "bool", "char", "string", "void"
+    };
+    return typeKeywords.find(s) != typeKeywords.end();
+}
+static const std::vector<std::string> operators = {
+    ">>=", "<<=",
+    "==", "!=", "<=", ">=",
+    "&&", "||",
+    "<<", ">>",
+    "+=", "-=", "*=", "/=", "%=",
+    "&=", "|=", "^=",
+    "++", "--",
+    "=", "+", "-", "*", "/", "%",
+    "&", "|", "^", "!", "<", ">"
+};
+
+std::vector<Token> tokenstream;
+
+using tokencallback = std::function<std::string(const Token&)>;
+std::unordered_map<std::string, tokencallback> tokenHandlers;
+void registerToken(const std::string& name, tokencallback handler) {
+    tokenHandlers[name] = handler;
+}
+
+ 
+
+Token tokenizeFile(std::istream& funcfile,size_t lineno = 1) {
+   // 一次把整個檔案讀進來（不用 get / peek）
+    std::string src(
+        (std::istreambuf_iterator<char>(funcfile)),
+        std::istreambuf_iterator<char>()
+    );
+
+    Token root{TokenType::ROOT, "", 0, {}};
+
+    size_t i = 0;
+     
+    TokenizeState state{};
+
+    auto skipWhitespace = [&](size_t& idx) {
+        while (idx < src.size()) {
+            if (src[idx] == ' ' || src[idx] == '\t') {
+                idx++;
+            } else if (src[idx] == '\n') {
+                lineno++;
+                idx++;
+            } else {
+                break;
+            }
+        }
+    };
+
+    auto parseIdentifierOrKeyword = [&](size_t& idx) -> Token {
+        std::string id;
+        while (idx < src.size() &&
+              ((src[idx] >= 'a' && src[idx] <= 'z') ||
+               (src[idx] >= 'A' && src[idx] <= 'Z') ||
+               (src[idx] >= '0' && src[idx] <= '9') ||
+               src[idx] == '_' || src[idx] == '@' || src[idx] == '#')) {
+            id += src[idx++];
+        }
+
+        TokenType ttype = TokenType::IDENTIFIER;
+        if (tokenHandlers.find(id) != tokenHandlers.end())
+            ttype = TokenType::KEYWORD;
+        if (isTypeKeyword(id))
+            ttype = TokenType::TYPE;
+
+        return {ttype, id, lineno, {}};
+    };
+
+    auto parseNumber = [&](size_t& idx) -> Token {
+        std::string num;
+        while (idx < src.size() &&
+              ((src[idx] >= '0' && src[idx] <= '9') || src[idx] == '.')) {
+            num += src[idx++];
+        }
+        return {TokenType::NUMBER, num, lineno, {}};
+    };
+
+    while (i < src.size()) {
+        skipWhitespace(i);
+        if (i >= src.size()) break;
+
+        // 單行註解
+        if (src[i] == '/' && i + 1 < src.size() && src[i + 1] == '/') {
+            std::string comment;
+            while (i < src.size() && src[i] != '\n') {
+                comment += src[i++];
+            }
+            root.children.push_back({TokenType::COMMENT, comment, lineno, {}});
+            continue;
+        }
+
+        // 字串
+        bool ifwstr =(src[i]=='L'&& i+1<src.size() &&src[i+1] == '"');
+        if (ifwstr||(src[i] == '"') ){
+            std::string str;
+              if(ifwstr){ str="L\"";i+=2;}  else{str="\"";i++; }
+            while (i < src.size()) {
+                 
+                if (src[i] == '\\' && i + 1 < src.size()) {
+                    str += src[i];
+                    str += src[i + 1];
+                    i += 2;
+                    continue;
+                }
+                     if (src[i] == '"') {
+                    str += '"';
+                    i++;
+                    break;
+                }
+            
+               
+                if (src[i] == '\n') lineno++;
+                str += src[i++] ;
+            }
+            root.children.push_back({TokenType::STRING, str, lineno, {}});
+            continue;
+        }
+        
+
+        // () {}
+         int inner_lineno = lineno;
+        if (src[i] == '(' || src[i] == '{') {
+            char startChar = src[i];
+            char endChar = (startChar == '(') ? ')' : '}';
+            Token node{TokenType::BEGIN, std::string(1, startChar), lineno, {}};
+
+            int depth = 1;
+            i++;
+            std::string inner;
+
+            while (i < src.size() && depth > 0) {
+                if (src[i] == startChar) depth++;
+                if (src[i] == endChar) depth--;
+                if (depth > 0) {
+                    if (src[i] == '\n') lineno++;
+                    inner += src[i];
+                }
+                i++;
+            }
+
+            
+            if (!inner.empty()) {
+               std::istringstream ss(inner);
+    node.children.push_back(tokenizeFile(ss,inner_lineno)); // 不再使用 reinterpret_cast
+    
+            }
+
+            if (!root.children.empty() && root.children.back().type == TokenType::KEYWORD) {
+    // 把 BEGIN 作為前一個 KEYWORD 的 child
+    root.children.back().children.push_back(node);
+} else {
+    root.children.push_back(node);
+}
+
+root.children.push_back({TokenType::END, std::string(1, endChar), lineno, {}});
+            continue;
+        }
+
+        // << >>
+      if ((src[i] == '<' && i + 1 < src.size() && src[i + 1] == '<') ||
+    (src[i] == '>' && i + 1 < src.size() && src[i + 1] == '>')) {
+
+    std::string startStr = src.substr(i, 2);
+    std::string endStr = (startStr == "<<") ? ">>" : "<<";
+    Token node{TokenType::BEGIN, startStr, lineno, {}};
+
+    int depth = 1;
+    i += 2;
+    std::string inner;
+int inner_lineno = lineno;
+    while (i + 1 < src.size() && depth > 0) {
+        if (src.compare(i, 2, startStr) == 0) {
+            depth++;
+            i += 2;
+            continue;
+        }
+        if (src.compare(i, 2, endStr) == 0) {
+            depth--;
+            i += 2;
+            continue;
+        }
+
+        if (src[i] == '\n') lineno++;
+        inner += src[i++];
+    }
+
+ 
+    if (!inner.empty()) {
+         std::istringstream ss(inner);
+    node.children.push_back(tokenizeFile(ss,inner_lineno)); // 不再使用 reinterpret_cast
+    }
+
+if (!root.children.empty() && root.children.back().type == TokenType::KEYWORD) {
+    root.children.back().children.push_back(node);
+} else {
+    root.children.push_back(node);
+}
+root.children.push_back({TokenType::END, endStr, lineno, {}});
+    continue;
+}
+
+        // 運算子 + = > ...
+     bool matched = false;
+         for (const auto& op : operators) {
+         if (i + op.size() <= src.size() &&
+         src.compare(i, op.size(), op) == 0) {
+        root.children.push_back({TokenType::OPERATOR, op, lineno, {}} );
+        i += op.size(); matched = true;
+        break;
+    }
+}
+
+if (matched) continue;
+
+       if(src[i] == ',' || src[i] == ';') {
+            root.children.push_back({TokenType::SEPARATOR, std::string(1, src[i]), lineno, {}});
+            i++;
+            continue;
+        }
+
+        // 數字
+        if (src[i] >= '0' && src[i] <= '9') {
+            root.children.push_back(parseNumber(i));
+            continue;
+        }
+
+        // 識別字
+        if ((src[i] >= 'a' && src[i] <= 'z') ||
+            (src[i] >= 'A' && src[i] <= 'Z') ||
+            src[i] == '_' || src[i] == '@' || src[i] == '#') {
+            root.children.push_back(parseIdentifierOrKeyword(i));
+            continue;
+        }
+
+        if (src[i] == '\n') lineno++;
+        i++; // 防止死循環
+    }
+
+    return root;
+}
+
+
+
+// ====== token 執行接口 ======
+// runTokenFunc 對應原 funcfile while，執行 token handler
+ 
+Token mergetoken(const Token& node, const std::string& afterSeper) {
+
+      if(node.type == TokenType::STRING){return node;} 
+      if(node.type == TokenType::NUMBER){return node;}
+       if(node.type == TokenType::IDENTIFIER&&node.children.empty()){ return node;}
+        if(node.type == TokenType::IDENTIFIER&& !node.children.empty()){   }
+        if (node.type == TokenType::KEYWORD&&(node.value=="true"||node.value=="false")) {Token tfbool;tfbool.type==TokenType::STRING;tfbool.value="\""+node.value+"\""; return tfbool;}
+ if (node.type == TokenType::SEPARATOR) {Token aftp;aftp.type==TokenType::SEPARATOR;aftp.value=afterSeper; return  aftp;}
+  Token result; result.type = TokenType::STRING;
+    for (const auto& child : node.children) {
+        result.value += mergetoken(child,afterSeper).value;
+    }
+    
+
+    return result; }
+    Token singletoken(const Token& node, const std::string& afterSeper) {
+        Token result; 
+
+      if(node.type == TokenType::STRING){result.type = TokenType::STRING;return node;} 
+      if(node.type == TokenType::NUMBER){result.type = TokenType::NUMBER; return node;}
+      if(node.type == TokenType::OPERATOR){result.type = TokenType::NUMBER; return node;}
+       if(node.type == TokenType::IDENTIFIER&&node.children.empty()){result.type = TokenType::IDENTIFIER; return node;}
+        if(node.type == TokenType::IDENTIFIER&& !node.children.empty()){   }
+        if (node.type == TokenType::KEYWORD&&(node.value=="true"||node.value=="false")) {Token tfbool;tfbool.type=TokenType::STRING;
+            result.type = TokenType::KEYWORD;tfbool.value="\""+node.value+"\""; return tfbool;}
+ if (node.type == TokenType::SEPARATOR) {Token aftp;aftp.type=TokenType::SEPARATOR;result.type = TokenType::SEPARATOR;aftp.value=afterSeper; return  aftp;}
+    return node;}
+    Token injecttoken(const Token& node) {
+if(node.type !=TokenType::ROOT) return node;
+  Token result; result.type = TokenType::STRING;
+    for (const auto& child : node.children) {
+        result.value += injecttoken(child).value;
+    }
+    
+
+    return result; }
+
+void runTokenFunc(const Token& node, std::ofstream& outfile) {
+   
+}
+
+// runToken 對應普通程式行
+std::string runToken(const Token& node) {
+         auto it = tokenHandlers.find(node.value);
+    if (it != tokenHandlers.end()) {
+        return it->second(node);  // 傳入整個 KEYWORD 節點
+    }
+
+    // 遞迴子 token
+    std::string result;
+    for (const auto& child : node.children) {
+        result += runToken(child);
+    }
+
+
+    return result;
+}
+
+ 
+
+std::string escapeUtf8(const std::string& s) {
+    std::string out;
+    for(unsigned char c : s){
+        if(c >= 32 && c <= 126) out += c; // 可打印 ASCII
+        else {  char buf[5];snprintf(buf, sizeof(buf), "\\x%02X", c); out += buf; }}
+    return out;
+}
+
+
+void printToken(const Token& node, int indent=0) {
+    std::string pad(indent*2, ' ');
+    std::string value=((int)node.type==0)?"root---":escapeUtf8(node.value);
+    std::cout << pad << "Token(type=" << (int)node.type
+              << ", value=\""<< value
+              << "\", line=" << node.line_number << ")\n";
+     
+    for(auto& child: node.children){
+        printToken(child, indent+1);
+    } 
+  }   
+
+// ======token區域=======
 //註解
 bool isComment(const std::string& line) {
    bool in_string = false;
@@ -66,28 +432,8 @@ bool isComment(const std::string& line) {
     }
     return false;
 }
-//去空格
-inline std::string noblank(const std::string& token) {
-       // 去掉前後空格
-    std::string v = token;
-    auto trim = [](std::string& s){
-        while (!s.empty() && isspace(s.front())) s.erase(s.begin());
-        while (!s.empty() && isspace(s.back())) s.pop_back();
-    };  trim(v);
-    // 空字串直接跳過
-    if (v.empty()) return "";
-    // 布林判斷
-    if (v == "true")  return "printf(\"true\");\n";  if (v == "false") return "printf(\"false\");\n";
-  // 判斷數字
-    char* end;
-    double num = std::strtod(v.c_str(), &end);
-    if (*end == '\0') {// 判斷整數或浮點
-        if (num == (int)num) return "{ auto _t = (int)" + v + "; printf(\"%d\", _t); }\n";
-        else return "{ auto _t = " + v + "; printf(\"%g\", _t); }\n";  }
- // 判斷字串（含 "abc"）或 fallback
-    if (!v.empty() && v.front()=='"' && v.back()=='"')  return "printf(" + v + ");\n";
-    // 其他情況也當字串
-    return "printf(\"" + v + "\");\n";}
+
+
     
 size_t findMatchingEnd(const std::string& line, size_t start, const std::string& h, const std::string& e) {
     int depth = 1;
@@ -113,7 +459,8 @@ size_t findMatchingEnd(const std::string& line, size_t start, const std::string&
 // 萃取 print("abc",1,2) 裡面的參數部分以及其他() 內容
 std::string extractArgs(const std::string& line, const std::string& h, const std::string& e, bool& keywordEnd) {
     keywordEnd = true; // 預設為已結束
-    size_t l = line.find(h);
+    std::string_view svline(line);
+    size_t l = svline.find(h);
     
     // 如果連頭都找不到，直接回傳空或原字串（視需求而定，這裡假設若沒頭則不處理）
     if (l == std::string::npos) {
@@ -147,7 +494,8 @@ std::string runCommand(const std::string& line,bool iffunc) {
     // 判斷是否處於多行模式
     bool inMultiLine = !pendingBuffer.empty();
     // 如果是註解中，或是空行，且不在多行模式下，直接略過
-    if (!inMultiLine && (line.find("//") == 0 || line.empty())) return ""; 
+    std::string_view svline(line);
+    if (!inMultiLine && (svline.find("//") == 0 || line.empty())) return ""; 
     // 注意：原本的 commentInReg 若是全域變數請保留使用，此處僅示範邏輯
     std::string currentLine;
     if (inMultiLine) {
@@ -170,14 +518,14 @@ std::string runCommand(const std::string& line,bool iffunc) {
 
     for (auto& p : cpsCommands) {
         // 優化：先檢查是否包含指令，避免無效搜尋
-        size_t cmdPos = line.find(p.first); if (cmdPos == std::string::npos) continue;
+        size_t cmdPos = svline.find(p.first); if (cmdPos == std::string::npos) continue;
         // 確保指令不是變數的一部分 (簡單邊界檢查，可選)
         // if (cmdPos > 0 && isalnum(line[cmdPos-1])) continue; 
         if (commentInReg) return ""; // 假設這是全域變數
         for (auto& note : func_head_end) {
             const std::string& hd = note.first; const std::string& ed = note.second;
             // 檢查這一行是否有對應的起始符號 (例如 "(")
-            if (line.find(hd) == std::string::npos) continue;
+            if (svline.find(hd) == std::string::npos) continue;
             bool isFuncCmd = (p.first == "@function");
             bool shouldRun = (isFuncCmd && iffunc) || (!isFuncCmd && !iffunc);
             bool keywordEnd = false;std::string args = extractArgs(line, hd, ed, keywordEnd);
@@ -238,52 +586,69 @@ auto is_number = [](const std::string& s){
     };
    
 int main(int argc, char* argv[]) {
-    bool enableclang =false;bool skipcompile=false;
+    bool enableclang =false;bool skipcompile=false;bool enableoverwrite = false;
+  
     //註冊
-    registerCommand("print","(",")", [](const std::string& args) {
-    std::stringstream ss(args);
-    std::string tok;
-    std::vector<std::string> v;
-    while (std::getline(ss, tok, ',')) v.push_back(tok);
-    std::string out;double iorf;
-      //處理非" "的參數
-      if(v.empty()) {for (size_t i =0; i < v.size(); ++i)v[i]= noblank(v[i]);}
-    if (!v.empty()) { 
-    for (size_t i =0; i < v.size(); ++i) {
-    std::string cur = v[i];
-    if ( cur == "true") { out += "printf(\"true\");\n";}
-    else if (cur == "false") { out += "printf(\"false\");\n"; }
-    else if (is_number(cur)) {
-        double iorf = std::stod(cur);
-        if (iorf == (int)iorf)   out += "{ int _t = " + cur + "; printf(\"%d\", _t); }\n";
-       else out += "{ double _t = " + cur + "; printf(\"%g\", _t); }\n"; }
-       else if(cur[0]== 'L') out +=(Ifiostream)? "std::wcout<<"+cur+";\n" :"wprintf("+cur+");\n";
-       else if(Ifiostream==true) out +="std::cout<<"+cur+";\n";
-       else {  out += "printf(" + cur + ");\n";}
-}
+      registerToken("true", [](const Token& node){return"";});
+      registerToken("false", [](const Token& node){return"";});
+    registerToken("println", [](const Token& node) {
+    std::string args,cur; 
+    
+     for (auto& child : node.children) {
+            cur= mergetoken(child,");\nprintf(").value; 
+            args += cur;
     }
-
-    return out;
+    return "printf(" + args+");\n";
 });
 
-registerCommand("println","(",")",  [](const std::string& args) {
-    return "printf(" + args + "); printf(\"\\n\");\n";
+  registerToken("print", [](const Token& node) {
+    std::string args,cur; Token curtoken;args="";bool opt=false;
+    std::string ifio=(Ifiostream)?";\n":");\n";
+    const auto& root= node.children[0].children[0].children;
+     for (const auto& child : root) {
+            curtoken= singletoken(child,""); cur=curtoken.value;
+             if(curtoken.type==TokenType::NUMBER){
+                  if(stod(curtoken.value)==(int)stod(curtoken.value)){args+="{ int _t = " + cur + "; printf(\"%d\", _t);}";}
+                  else args+= "{ double _t = " + cur + "; printf(\"%g\", _t);}"; }
+             if(curtoken.type==TokenType::SEPARATOR) {args+=ifio;opt=false;}     
+             if(curtoken.value[0]=='L') {(Ifiostream)?args+="std::wcout<<"+cur+ifio :"wprintf("+cur;}else{
+             if(curtoken.type==TokenType::STRING&&Ifiostream==true){ args+="std::cout<<"+cur;}
+             if(curtoken.type==TokenType::STRING&&Ifiostream==false){  args += "printf(" + cur;}}
+             if(curtoken.type==TokenType::OPERATOR){  args += cur;opt=true;}
+             if(curtoken.type==TokenType::IDENTIFIER){
+                if(!opt){args+=(Ifiostream)?"std::cout<<"+cur:"printf("+cur;} else{args+=cur;}}
+               
+    }
+    return args+ifio;
 });
-
-registerCommand("input","(",")",  [](const std::string& args) {
-        std::stringstream ss(args);
-    std::string tok,out;
-    std::vector<std::string> v;
-    while (std::getline(ss, tok, ',')) v.push_back(tok);
-    if(Ifiostream==false) out= "printf(\"need import iostream\")";
-    if (!v.empty()) { 
-    for(int i=0;i<v.size();i++){
-        out +="std::cin>>"+v[i]+";\n";
-    }}
-    return out;
+registerToken("input",[](const Token& node){
+    std::string args;
+    const auto& root= node.children[0].children[0].children;//切換到'('或'<<'後面的root
+      if(Ifiostream==false) args= "printf(\"need import iostream\")";
+     for (const auto& child : root) {if(child.type==TokenType::IDENTIFIER) args+="std::cin>>"+child.value+";\n";}
+    return  args;
 });
-
+registerToken("@inject",[](const Token& node){
+    int cont;  
+    std::string args,cur; const auto& root= node.children[0].children[0].children;
+     for (auto& child : root) {
+            cur= injecttoken(child).value; 
+            args += cur;
+    }
+    if (args.size() >= 2 && args.front() == '"' && args.back() == '"') {
+    args = args.substr(1, args.size() - 2);
+}else{
+    args ="";
+}
+    return  args;
+});
+ 
+ 
 registerCommand("@inject","(",")",  [](const std::string& args) {
+    std::string o="";
+     if (args.size() >= 2 && args.front() == '"') {
+      return o;
+}
     return args;
 });
 registerCommand("@function","<<",">>",  [](const std::string& args) {
@@ -292,13 +657,38 @@ registerCommand("@function","<<",">>",  [](const std::string& args) {
 ////////
     if (argc < 2) {
         std::cerr << "Usage: cppsp_compiler(if not in environment path:.\\cppsp_compiler.exe or c:\\...\\cppsp_compiler.exe) script.cppsp\ninclude.ini:C:\\...\\include1,c:\\...\\include2\nlib.ini:C:\\...\\lib1,c:\\...\\lib2\n";
-        std::cerr << "(Optional) rename cppsp_compiler.exe(or cppsp_compiler) to any name you like to change compile command like:cppsp,abcdef....";
+        std::cerr << "\33[93m(Optional) rename cppsp_compiler.exe(or cppsp_compiler) to any name you like to change compile command like:\33[0m\33[36mcppsp,abcdef....\33[0m\n";
         return 1;
     }
 
-    fs::path cpsPath(argv[1]);
+    
+
+  //預留模組安裝功能
+  /*  if(strcmp(argv[1],"install")==0){
+        for(int i=2;i<argc;i++){
+         size_t pos = std::string(argv[i]).find("-");std::string mod;
+         std::string modname=std::string(argv[i]).substr(0,pos);
+         std::string modver=std::string(argv[i]).substr(pos+1);
+            if(std::string(argv[i])=="cppsp"){
+                if(isLinux)    mod="curl -L -o cppsp_compiler https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_compiler_linux.delete_linux";
+                else if(isMac)  mod= " curl -L -o cppsp_compiler https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_compiler_mac.delete_mac";
+                else  mod="curl -L -o cppsp_compiler.exe https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_compiler.exe";
+            system(mod.c_str());
+            if(isLinux||isMac) system("chmod +x cppsp_compiler");
+            }else{
+                   mod="curl -L -o \""+std::string(argv[i])+".zip\""+" \"https://github.com/user19870/cppsp/moduldes/"+modname+"/"+std::string(argv[i])+".zip";
+                 system(mod.c_str());
+                system(("tar -xf \""+std::string(argv[i])+".zip\"").c_str()); }
+            } return 0;
+    }else if(strcmp(argv[1],"update")==0){
+         for(int i=2;i<argc;i++){
+
+    }  
+     return 0;} 
+*/
+  fs::path cpsPath(argv[1]);
     if (!fs::exists(cpsPath)) {
-        std::cerr << "File not found.\n";
+       std::cerr << "File not found.\n";
         return 1;
     }
 
@@ -308,21 +698,26 @@ registerCommand("@function","<<",">>",  [](const std::string& args) {
         return 1;
     }
 
-    fs::path cppPath = cpsPath.parent_path() / (cpsPath.stem().string() + ".cpp");
+    fs::path cppPath = cpsPath.parent_path() / (cpsPath.stem().concat(".cpp"));
     std::ofstream outfile(cppPath);
     if (!outfile) {
         std::cerr << "Cannot create cpp file.\n";
         return 1;
     }
 
+    std::ifstream tokenfile(cpsPath);
+   Token root = tokenizeFile(tokenfile,1);
+    tokenstream.push_back(root);
+
+
     outfile << "#include <stdio.h>\n";
     std::string importline; std::ifstream fileinclude(cpsPath);
 while (std::getline(fileinclude, importline)) {
-  bool comment=isComment(importline);
-if (!comment && importline.find("import ") != std::string::npos) {
-    size_t pos = importline.find("import ");
+  bool comment=isComment(importline);std::string_view svimportline(importline);
+if (!comment && svimportline.find("import ") != std::string::npos) {
+    size_t pos = svimportline.find("import ");
     std::string imports = importline.substr(pos + 7); // "import " 長度 7
-
+  
     imports = trim(imports);
 
     // 拆成多個標頭
@@ -334,47 +729,64 @@ if (!comment && importline.find("import ") != std::string::npos) {
 
         fs::path importFile = cpsPath.parent_path() / header;
         outfile << "#include \"" << importFile.lexically_relative(cpsPath.parent_path()).string() << "\"\n";
-
+     
         if (importFile.filename().string() == "iostream") {
             Ifiostream = true;
         }
+
     }
 }
 }
- std::string funcline;
+ 
+ std::string funcline; 
    while (std::getline(funcfile, funcline)) {
-    
+                    //提前判斷overwrite
+          if(funcline.find("#overwrite")!= std::string::npos){enableoverwrite=true;}
         /*  if(funcline != std::string::npos){   size_t pos = funcline.find("@function<<");
             std::string funcname = funcline.substr(pos + 11); // "@function(" 長度 10
             funcname = funcname.substr(0, funcname.find(">>"));*/
             std::string funcname = runCommand(funcline,true);
+
+ 
             bool comment=isComment(funcline);
              if (comment) {continue; }
             if (funcname.empty()) continue;
                 outfile <<funcname+"\n";
+    
     }
-    bool enableoverwrite = false;
- if(enableoverwrite) outfile << "/*";
+
+   /* for(auto& p:tokenstream){
+       printToken(p);
+    }*/
+
+    if(enableoverwrite) outfile << "/*";
         outfile << "int main() {\n";
-    std::string line;
+
+
+
+    std::string line; 
     std::string extraFlags=""; // 存 @command() 的內容
     while (std::getline(infile, line)) {
+        std::string_view fdcommd(line); 
         commentInReg=false;
         commentInReg=isComment(line);
         std::string code = runCommand(line,false);
         if (!code.empty()) outfile << code;
         if (commentInReg) {continue; }
-        if (line.find("@command(") != std::string::npos) {
-            size_t start = line.find("\"");
-            size_t end = line.rfind("\"");
+        if (fdcommd.find("@command(") != std::string::npos) {
+            size_t start = fdcommd.find("\"");
+            size_t end = fdcommd.rfind("\"");
             if (start != std::string::npos && end != std::string::npos && end > start)
                 extraFlags += " " + line.substr(start + 1, end - start - 1);
         }
-        if(line.find("#useclang")!= std::string::npos){enableclang=true;}
-        if(line.find("#usegcc")!= std::string::npos){enableclang=false;}
-        if(line.find("#overwrite")!= std::string::npos){enableoverwrite=true;}
-        if(line.find("#skipcompile")!= std::string::npos){skipcompile=true;}
+        if(fdcommd.find("#useclang")!= std::string::npos){enableclang=true;}
+        if(fdcommd.find("#usegcc")!= std::string::npos){enableclang=false;}
+        if(fdcommd.find("#overwrite")!= std::string::npos){enableoverwrite=true;}
+        if(fdcommd.find("#skipcompile")!= std::string::npos){skipcompile=true;}
+ 
     }
+    for(auto& p:tokenstream) {std::string tokcode=runToken(p);outfile << tokcode;}
+    
 
     outfile << "\nreturn 0;\n}\n";
      if(enableoverwrite) outfile << "*/";
