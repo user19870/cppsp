@@ -45,7 +45,7 @@ lib.ini:C:\...\lib1,c:\...\lib2
 * `input()`: input data to variables,but need `@inject()` to declare varibles
 * `//`:comment
 ## Syntax
-* `<{...}>` : c++ code or anything in <{...}> will become a element of cppsp keyowds like:
+* `<{...}>` : c++ codea or everything in <{...}> will become an element of cppsp keyowds like:
  ```
   import math.h,iostream
 print( <{pow(2,3)}>)
