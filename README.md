@@ -44,6 +44,12 @@ lib.ini:C:\...\lib1,c:\...\lib2
 * `print()`: print content to console like print("12\n"," ",1," ",2.1,true,false," ")
 * `input()`: input data to variables,but need `@inject()` to declare varibles
 * `//`:comment
+## Syntax
+* `<{...}>` : c++ code or anything in <{...}> will become a element of cppsp keyowds like:
+ ```
+  import math.h,iostream
+print( <{pow(2,3)}>)
+```
 ### Warning ⚠️
 * Cannot accept any space/blank before keyword before v1.2! 
 * No multi-line before v1.3!
