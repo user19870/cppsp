@@ -34,20 +34,21 @@ void registerCommand(const std::string& name,const std::string& start,const std:
 // ======token區域=======
 
 enum class TokenType {
-    ROOT,       // container 根節點，不算實際 token
-    BEGIN,  // ( 、 <<
-    END,     // ) 、 >>
+    ROOT,       //0 container 根節點，不算實際 token
+    BEGIN,  //1 ( 、 {
+    END,     //2 ) 、 }
 
-    IDENTIFIER, // 變數名稱
-    NUMBER,     // 數字
-    STRING,     // 字串
-    OPERATOR,   // 運算子+ - = += * /
-    TYPE,       // 資料型態int float bool string
-    SEPARATOR,  // 分隔符號: , ;
+    IDENTIFIER, //3 變數名稱 
+    NUMBER,     //4 數字
+    STRING,     //5 字串
+    OPERATOR,   //6 運算子+ - = += * /
+    TYPE,       //7 資料型態int float bool string
+    SEPARATOR,  //8 分隔符號: , ;
 
-    KEYWORD,    // 關鍵字: print println input @inject @function
-    COMMENT,    // 註解
-    UNKNOWN     // 未知
+    KEYWORD,    //9 關鍵字: print println input @inject @function
+    COMMENT,    //10 註解
+    INJECT,     //11 <<...>> 內嵌程式碼
+    UNKNOWN     //12 未知
 
 };
 struct Token {
@@ -225,18 +226,17 @@ root.children.push_back({TokenType::END, std::string(1, endChar), lineno, {}});
             continue;
         }
 
-        // << >>
-      if ((src[i] == '<' && i + 1 < src.size() && src[i + 1] == '<') ||
-    (src[i] == '>' && i + 1 < src.size() && src[i + 1] == '>')) {
-
-    std::string startStr = src.substr(i, 2);
-    std::string endStr = (startStr == "<<") ? ">>" : "<<";
+        // <{ }>
+   if (i + 1 < src.size() && src[i] == '<' && src[i + 1] == '{') {
+    std::string startStr = "<{";
+    std::string endStr = "}>";
     Token node{TokenType::BEGIN, startStr, lineno, {}};
 
     int depth = 1;
     i += 2;
-    std::string inner;
-int inner_lineno = lineno;
+    std::string inner; 
+    size_t inner_lineno = lineno;
+
     while (i + 1 < src.size() && depth > 0) {
         if (src.compare(i, 2, startStr) == 0) {
             depth++;
@@ -253,18 +253,13 @@ int inner_lineno = lineno;
         inner += src[i++];
     }
 
- 
     if (!inner.empty()) {
-         std::istringstream ss(inner);
-    node.children.push_back(tokenizeFile(ss,inner_lineno)); // 不再使用 reinterpret_cast
+      root.children.push_back(node);
+      root.children.push_back({TokenType::INJECT, inner, inner_lineno, {}});
+      root.children.push_back({TokenType::END, endStr, lineno, {}});
     }
 
-if (!root.children.empty() && root.children.back().type == TokenType::KEYWORD) {
-    root.children.back().children.push_back(node);
-} else {
-    root.children.push_back(node);
-}
-root.children.push_back({TokenType::END, endStr, lineno, {}});
+   
     continue;
 }
 
@@ -334,6 +329,7 @@ Token mergetoken(const Token& node, const std::string& afterSeper) {
       if(node.type == TokenType::STRING){result.type = TokenType::STRING;return node;} 
       if(node.type == TokenType::NUMBER){result.type = TokenType::NUMBER; return node;}
       if(node.type == TokenType::OPERATOR){result.type = TokenType::NUMBER; return node;}
+      if(node.type == TokenType::INJECT){result.type = TokenType::INJECT; return node;}
        if(node.type == TokenType::IDENTIFIER&&node.children.empty()){result.type = TokenType::IDENTIFIER; return node;}
         if(node.type == TokenType::IDENTIFIER&& !node.children.empty()){   }
         if (node.type == TokenType::KEYWORD&&(node.value=="true"||node.value=="false")) {Token tfbool;tfbool.type=TokenType::STRING;
@@ -602,30 +598,34 @@ int main(int argc, char* argv[]) {
 });
 
   registerToken("print", [](const Token& node) {
-    std::string args,cur; Token curtoken;args="";bool opt=false;
+    std::string args,cur,prenum; Token curtoken;args="";bool opt=false; 
     std::string ifio=(Ifiostream)?";\n":");\n";
-    const auto& root= node.children[0].children[0].children;
+    const auto& root= node.children[0].children[0].children;//切換到'('或'{'後面的root
      for (const auto& child : root) {
             curtoken= singletoken(child,""); cur=curtoken.value;
-             if(curtoken.type==TokenType::NUMBER){
-                  if(stod(curtoken.value)==(int)stod(curtoken.value)){args+="{ int _t = " + cur + "; printf(\"%d\", _t);}";}
-                  else args+= "{ double _t = " + cur + "; printf(\"%g\", _t);}"; }
+             if(curtoken.type==TokenType::NUMBER){ if(!opt){
+                  if(stod(curtoken.value)==(int)stod(curtoken.value)){args+=(Ifiostream)?"std::cout<<"+cur:"{ int _t = " + cur + "; printf(\"%d\", _t);}";}
+                  else args+= (Ifiostream)?"std::cout<<"+cur:"{ double _t = " + cur + "; printf(\"%g\", _t);}";}else{args+=cur;} }
              if(curtoken.type==TokenType::SEPARATOR) {args+=ifio;opt=false;}     
              if(curtoken.value[0]=='L') {(Ifiostream)?args+="std::wcout<<"+cur+ifio :"wprintf("+cur;}else{
-             if(curtoken.type==TokenType::STRING&&Ifiostream==true){ args+="std::cout<<"+cur;}
-             if(curtoken.type==TokenType::STRING&&Ifiostream==false){  args += "printf(" + cur;}}
+               if(curtoken.type==TokenType::STRING){ args+=(Ifiostream)?"std::cout<<"+cur:"printf(" + cur;}}
              if(curtoken.type==TokenType::OPERATOR){  args += cur;opt=true;}
+             if(curtoken.type==TokenType::INJECT){ args+=(Ifiostream)?"std::cout<<"+cur:"printf(" + cur;}
              if(curtoken.type==TokenType::IDENTIFIER){
                 if(!opt){args+=(Ifiostream)?"std::cout<<"+cur:"printf("+cur;} else{args+=cur;}}
+                
                
     }
     return args+ifio;
 });
 registerToken("input",[](const Token& node){
     std::string args;
-    const auto& root= node.children[0].children[0].children;//切換到'('或'<<'後面的root
+    const auto& root= node.children[0].children[0].children;//切換到'('或'{'後面的root
       if(Ifiostream==false) args= "printf(\"need import iostream\")";
-     for (const auto& child : root) {if(child.type==TokenType::IDENTIFIER) args+="std::cin>>"+child.value+";\n";}
+     for (const auto& child : root) {
+        if(child.type==TokenType::IDENTIFIER) args+="std::cin>>"+child.value+";\n";
+        if(child.type==TokenType::INJECT) args+="std::cin>>"+child.value+";\n";
+    }
     return  args;
 });
 registerToken("@inject",[](const Token& node){
@@ -754,11 +754,11 @@ if (!comment && svimportline.find("import ") != std::string::npos) {
                 outfile <<funcname+"\n";
     
     }
-
-   /* for(auto& p:tokenstream){
+/*
+    for(auto& p:tokenstream){
        printToken(p);
-    }*/
-
+    }
+*/
     if(enableoverwrite) outfile << "/*";
         outfile << "int main() {\n";
 
