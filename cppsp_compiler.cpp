@@ -18,8 +18,7 @@ bool isWindows=false;bool isMac=false;bool isLinux =false;
  #define isLinux 1 
  #endif
 //檢查dll依賴:objdump -p cppsp_compiler.exe | findstr ".dll" 
-//備忘錄: 未來做token儲存.cppsp內容，用unorder；vector各種方法做出token分類如何關鍵字、關鍵字的()裡面參數、變數、數字、字串等，只掃描一次.cppsp檔案
-//之後直接讀取token
+//備忘錄:設計if/else/for控制、設計變數系統、設計函數系統
 namespace fs = std::filesystem;
 bool Ifiostream=0;bool commentInReg=false;
 // ====== 新增：萬用語法指令註冊器 ======
@@ -41,14 +40,15 @@ enum class TokenType {
     IDENTIFIER, //3 變數名稱 
     NUMBER,     //4 數字
     STRING,     //5 字串
-    OPERATOR,   //6 運算子+ - = += * /
-    TYPE,       //7 資料型態int float bool string
-    SEPARATOR,  //8 分隔符號: , ;
+    CHAR,       //6 字元
+    OPERATOR,   //7 運算子+ - = += * /
+    TYPE,       //8 資料型態int float bool string
+    SEPARATOR,  //9 分隔符號: , ;
 
-    KEYWORD,    //9 關鍵字: print println input @inject @function
-    COMMENT,    //10 註解
-    INJECT,     //11 <<...>> 內嵌程式碼
-    UNKNOWN     //12 未知
+    KEYWORD,    //10 關鍵字: print println input @inject @function
+    COMMENT,    //11 註解
+    INJECT,     //12 <<...>> 內嵌程式碼
+    UNKNOWN     //13 未知
 
 };
 struct Token {
@@ -65,10 +65,11 @@ struct TokenizeState {
 TokenizeState state={0,false,false};
 bool isTypeKeyword(const std::string& s) {
     static const std::unordered_set<std::string> typeKeywords = {
-        "int", "double", "float", "bool", "char", "string", "void"
+        "int", "float", "bool", "char", "string"
     };
     return typeKeywords.find(s) != typeKeywords.end();
 }
+ 
 static const std::vector<std::string> operators = {
     ">>=", "<<=",
     "==", "!=", "<=", ">=",
@@ -128,10 +129,10 @@ Token tokenizeFile(std::istream& funcfile,size_t lineno = 1) {
         }
 
         TokenType ttype = TokenType::IDENTIFIER;
-        if (tokenHandlers.find(id) != tokenHandlers.end())
-            ttype = TokenType::KEYWORD;
         if (isTypeKeyword(id))
-            ttype = TokenType::TYPE;
+           ttype = TokenType::TYPE;
+        if (tokenHandlers.find(id) != tokenHandlers.end())
+            ttype = TokenType::KEYWORD;            
 
         return {ttype, id, lineno, {}};
     };
@@ -172,7 +173,8 @@ Token tokenizeFile(std::istream& funcfile,size_t lineno = 1) {
                     i += 2;
                     continue;
                 }
-                     if (src[i] == '"') {
+                   bool ifstrend;if(src[i+1]==')'||src[i+1]==','||src[i+1]==' ') ifstrend=true; else ifstrend=false;  
+                   if (src[i] == '"'&&ifstrend) {
                     str += '"';
                     i++;
                     break;
@@ -183,6 +185,30 @@ Token tokenizeFile(std::istream& funcfile,size_t lineno = 1) {
                 str += src[i++] ;
             }
             root.children.push_back({TokenType::STRING, str, lineno, {}});
+            continue;
+        }
+        // 字元char
+        if(src[i]=='\''){
+            std::string charstr;
+            charstr+="'";
+            i++;
+            while(i<src.size()){
+                if(src[i]=='\\'&& i+1<src.size()){
+                    charstr+=src[i];
+                    charstr+=src[i+1];
+                    i+=2;
+                    continue;
+                }
+                 bool ifstrend;if(src[i+1]==')'||src[i+1]==',') ifstrend=true; else ifstrend=false;  
+                if(src[i]=='\''&&ifstrend){
+                    charstr+="'";
+                    i++;
+                    break;
+                }
+                if(src[i]=='\n') lineno++;
+                charstr+=src[i++];
+            }
+            root.children.push_back({TokenType::CHAR,charstr,lineno,{}});
             continue;
         }
         
@@ -208,21 +234,24 @@ Token tokenizeFile(std::istream& funcfile,size_t lineno = 1) {
                 i++;
             }
 
-            
-            if (!inner.empty()) {
+        if (!root.children.empty() && root.children.back().type == TokenType::KEYWORD) {
+                if (!inner.empty()) {
                std::istringstream ss(inner);
-    node.children.push_back(tokenizeFile(ss,inner_lineno)); // 不再使用 reinterpret_cast
-    
-            }
-
-            if (!root.children.empty() && root.children.back().type == TokenType::KEYWORD) {
-    // 把 BEGIN 作為前一個 KEYWORD 的 child
-    root.children.back().children.push_back(node);
+                 node.children.push_back(tokenizeFile(ss,inner_lineno)); // 不再使用 reinterpret_cast
+                         }
+                  node.children.push_back({TokenType::END, std::string(1, endChar), lineno, {}});
+                   // 把 BEGIN 作為前一個 KEYWORD 的 child
+                 root.children.back().children.push_back(node);
 } else {
+               if (!inner.empty()) {
+                     std::istringstream ss(inner);Token iner=tokenizeFile(ss,inner_lineno);
+                    for(auto& child : iner.children) node.children.push_back(child); // 不再使用 reinterpret_cast  
+                          }
+                         node.children.push_back({TokenType::END, std::string(1, endChar), lineno, {}});
     root.children.push_back(node);
 }
 
-root.children.push_back({TokenType::END, std::string(1, endChar), lineno, {}});
+ 
             continue;
         }
 
@@ -262,6 +291,41 @@ root.children.push_back({TokenType::END, std::string(1, endChar), lineno, {}});
    
     continue;
 }
+//var   變數系統
+       int var_inner_lineno = lineno;
+       if (src[i] == 'v' && src[i+1] == 'a' && src[i+2] == 'r' ) {
+             
+            Token node{TokenType::KEYWORD, "var", lineno, {}};Token invar;
+            i += 3;bool varend=true;
+  
+            std::string inner;
+            while (i < src.size()&&varend) {
+                 std::istringstream ss(inner);
+                    if (src[i] == '\n'){invar=tokenizeFile(ss,var_inner_lineno);
+                        for(auto& child : invar.children){
+                   if( child.type != TokenType::TYPE) node.children.push_back(child);
+                                        }
+                    if(invar.children.back().type==TokenType::TYPE){varend=false;
+                    node.children.push_back(invar.children.back());} 
+                      else {inner="";}
+                      lineno++;
+                }
+                    inner += src[i];i++;
+                    
+
+            }
+            
+ 
+           
+    root.children.push_back(node);
+  
+
+
+ 
+            continue;
+        }
+
+
 
         // 運算子 + = > ...
      bool matched = false;
@@ -327,6 +391,7 @@ Token mergetoken(const Token& node, const std::string& afterSeper) {
         Token result; 
 
       if(node.type == TokenType::STRING){result.type = TokenType::STRING;return node;} 
+      if(node.type == TokenType::CHAR){result.type = TokenType::CHAR;return node;} 
       if(node.type == TokenType::NUMBER){result.type = TokenType::NUMBER; return node;}
       if(node.type == TokenType::OPERATOR){result.type = TokenType::NUMBER; return node;}
       if(node.type == TokenType::INJECT){result.type = TokenType::INJECT; return node;}
@@ -352,13 +417,14 @@ void runTokenFunc(const Token& node, std::ofstream& outfile) {
 
 // runToken 對應普通程式行
 std::string runToken(const Token& node) {
+    std::string result;
          auto it = tokenHandlers.find(node.value);
     if (it != tokenHandlers.end()) {
         return it->second(node);  // 傳入整個 KEYWORD 節點
     }
 
+
     // 遞迴子 token
-    std::string result;
     for (const auto& child : node.children) {
         result += runToken(child);
     }
@@ -587,6 +653,29 @@ int main(int argc, char* argv[]) {
     //註冊
       registerToken("true", [](const Token& node){return"";});
       registerToken("false", [](const Token& node){return"";});
+      registerToken("var", [](const Token& node){
+             std::string arga,type,optrar;int vat=1;std::vector<std::string> n,c; 
+             type=node.children.back().value;
+             for (auto& child : node.children){
+                if(child.type==TokenType::OPERATOR){optrar=child.value;}
+                if(child.type==TokenType::IDENTIFIER){ n.push_back(child.value);}
+                else if(child.type==TokenType::STRING||child.type==TokenType::NUMBER||child.type==TokenType::CHAR||child.type==TokenType::INJECT){
+                    c.push_back(child.value);}
+                if(child.type==TokenType::SEPARATOR)vat++;     
+             }
+             for(size_t i=0;i<n.size();i++){
+                if(n[i].empty())  break;
+                 std::string val = (i < c.size()) ? c[i] : ""; 
+                 std::string op = val.empty() ? "" : optrar;
+                 if(type=="string"){arga+=(Ifiostream)?"std::string "+n[i]+op+val+";":"char "+n[i]+"[]"+op+val+";";}
+                 else if(type=="int"){arga+="long long "+n[i]+op+val+";";}
+                 else if(type=="float"){arga+="double "+n[i]+op+val+";";}
+                 else if(type=="bool"){arga+="bool "+n[i]+op+val+";";}
+                 else if(type=="char"){arga+="char "+n[i]+op+val+";";}
+             }
+          
+        
+        return arga+"\n";});
     registerToken("println", [](const Token& node) {
     std::string args,cur; 
     
@@ -604,11 +693,11 @@ int main(int argc, char* argv[]) {
      for (const auto& child : root) {
             curtoken= singletoken(child,""); cur=curtoken.value;
              if(curtoken.type==TokenType::NUMBER){ if(!opt){
-                  if(stod(curtoken.value)==(int)stod(curtoken.value)){args+=(Ifiostream)?"std::cout<<"+cur:"{ int _t = " + cur + "; printf(\"%d\", _t);}";}
-                  else args+= (Ifiostream)?"std::cout<<"+cur:"{ double _t = " + cur + "; printf(\"%g\", _t);}";}else{args+=cur;} }
+                  if(stod(curtoken.value)==(int)stod(curtoken.value)){args+=(Ifiostream)?"std::cout<<"+cur:" printf(\"%d\","+cur;}
+                  else args+= (Ifiostream)?"std::cout<<"+cur:" printf(\"%g\","+cur;}  else{args+=cur;} }
              if(curtoken.type==TokenType::SEPARATOR) {args+=ifio;opt=false;}     
-             if(curtoken.value[0]=='L') {(Ifiostream)?args+="std::wcout<<"+cur+ifio :"wprintf("+cur;}else{
-               if(curtoken.type==TokenType::STRING){ args+=(Ifiostream)?"std::cout<<"+cur:"printf(" + cur;}}
+             if(curtoken.value[0]=='L') {(Ifiostream)?args+="std::wcout<<"+cur :"wprintf("+cur;}else{
+               if(curtoken.type==TokenType::STRING||curtoken.type==TokenType::CHAR){ args+=(Ifiostream)?"std::cout<<"+cur:"printf(" + cur;}}
              if(curtoken.type==TokenType::OPERATOR){  args += cur;opt=true;}
              if(curtoken.type==TokenType::INJECT){ args+=(Ifiostream)?"std::cout<<"+cur:"printf(" + cur;}
              if(curtoken.type==TokenType::IDENTIFIER){
@@ -646,7 +735,7 @@ registerToken("@inject",[](const Token& node){
  
 registerCommand("@inject","(",")",  [](const std::string& args) {
     std::string o="";
-     if (args.size() >= 2 && args.front() == '"') {
+     if (args.size() >= 2 && args.front() == '"' && args.back() == '"') {
       return o;
 }
     return args;
@@ -728,9 +817,14 @@ if (!comment && svimportline.find("import ") != std::string::npos) {
         if (header.empty()) continue;
 
         fs::path importFile = cpsPath.parent_path() / header;
-        outfile << "#include \"" << importFile.lexically_relative(cpsPath.parent_path()).string() << "\"\n";
+        std::string import= importFile.lexically_relative(cpsPath.parent_path()).string();
+    
+        if(header[0]=='\"'&&header[header.length()-1]=='\"') import=import;
+        else if(header[0]=='<'&&header[header.length()-1]=='>') import=import;
+        else import="\""+import+"\"";
+        outfile << "#include " <<import << "\n";
      
-        if (importFile.filename().string() == "iostream") {
+        if (importFile.filename().string() == "iostream"||importFile.filename().string() == "<iostream>") {
             Ifiostream = true;
         }
 
