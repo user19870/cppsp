@@ -33,6 +33,7 @@ lib.ini:C:\...\lib1,c:\...\lib2
 * can use almost c++ header by import
 * can use c++ code  by @inject and @function
 * enable indentation and multi-line after v1.3
+* declare multi variables with `var`.....`type`
 ## Keyword
 * `#useclang` or `#usegcc` : use clang++ or g++ compile command
 * `@command("...")`: add command when compile like:-Os、-m64
