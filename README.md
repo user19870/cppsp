@@ -42,7 +42,7 @@ lib.ini:C:\...\lib1,c:\...\lib2
 * `@function<<...>>`: inject everything(void()、int()、bool()、even #define and using namespace) in <<...>> to the space under #include above int main()
 *  `@inject(...)` :inject everything in (...) to int main(){...}  ----`＠inject(....)`and `＠inject("....")` are both legal. ＠inject(....) belonging to line ast and ＠inject("....") belonging to token ast  but ＠inject(....) will be transpiled before ＠inject("....") and any keyword belonging to token ast.)
 * `print()`: print content to console like print("12\n"," ",1," ",2.1,true,false," ")
-* `input()`: input data to variables,but need `@inject()` to declare varibles
+* `input()`: input data to variables
 * `var`.....`type`: declare variables with/without values. Support multi variables and type can be written as `int/float/char/string/bool`. <{1+1}> is a value but 1+1 not(it's expression) 
 * `//`:comment
 ## Syntax
