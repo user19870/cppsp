@@ -43,12 +43,26 @@ lib.ini:C:\...\lib1,c:\...\lib2
 *  `@inject(...)` :inject everything in (...) to int main(){...}  ----`＠inject(....)`and `＠inject("....")` are both legal. ＠inject(....) belonging to line ast and ＠inject("....") belonging to token ast  but ＠inject(....) will be transpiled before ＠inject("....") and any keyword belonging to token ast.)
 * `print()`: print content to console like print("12\n"," ",1," ",2.1,true,false," ")
 * `input()`: input data to variables,but need `@inject()` to declare varibles
+* `var`.....`type`: declare variables with/without values. Support multi variables and type can be written as `int/float/char/string/bool`. <{1+1}> is a value but 1+1 not(it's expression) 
 * `//`:comment
 ## Syntax
 * `<{...}>` : c++ codea or everything in <{...}> will become an element of cppsp keyowds like:
  ```
   import math.h,iostream
 print( <{pow(2,3)}>)
+```
+* `var`......`type`:
+```
+import  string,iostream
+var a,c,d =  1,
+<{(2*2+6)/2}>
+,4 int
+var b = "hello world" string
+var f1,f2,f3 float
+var c1 char
+var b1 = <{1+1==2}> bool
+input(f1)
+print(a," ",c," ",d," ",b," ",b1," ",f1)
 ```
 ### Warning ⚠️
 * Cannot accept any space/blank before keyword before v1.2! 
