@@ -1,0 +1,15 @@
+@command("-Os -s")
+import iostream
+var a,b,tmp ={1,2,3},{4,5,6},0 int
+var s string
+print("if swap? (y/n)")
+if(input(s)=="y"){
+for(int i=0,i<3,i++){
+    tmp = a[i]
+    a[i]=b[i]
+    b[i]=tmp }
+}
+for(int i:a){print(i," ")}
+print("\n")
+for(int i:b){print(i," ")}
+print("\n")
