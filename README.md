@@ -44,7 +44,9 @@ lib.ini:C:\...\lib1,c:\...\lib2
 *  `@inject(...)` :inject everything in (...) to int main(){...}  ----`＠inject(....)`and `＠inject("....")` are both legal. ＠inject(....) belonging to line ast and ＠inject("....") belonging to token ast  but ＠inject(....) will be transpiled before ＠inject("....") and any keyword belonging to token ast.)
 * `print()`: print content to console like print("12\n"," ",1," ",2.1,true,false," ")
 * `input()`: input data to variables
-* `var`.....`type`: declare variables with/without values. Support multi variables and type can be written as `int/float/char/string/bool`. <{1+1}> is a value but 1+1 not(it's expression) 
+* `var`.....`type`: declare variables with/without values. Support multi variables and type can be written as `int/float/char/string/bool`. <{1+1}> is a value but 1+1 not(it's expression)
+* `if/else/else if(...){...}`:similar to "if" in c++ but enable if(input(x) ....). Can write cppsp keywords and assignment in {...}
+* `for(...){...}`:similae to "for" in c++ like for( type i=0,i<10,i++) or for(int i:x). Can write cppsp keywords and assignment in {...}
 * `//`:comment
 ## Syntax
 * `<{...}>` : c++ codea or everything in <{...}> will become an element of cppsp keyowds like:
@@ -64,6 +66,16 @@ var c1 char
 var b1 = <{1+1==2}> bool
 input(f1)
 print(a," ",c," ",d," ",b," ",b1," ",f1)
+```
+* array and assignment:
+```
+import iostream
+var x={1,2,3} int
+@inject("x[0]=3;x[1]=2; x[2]=1;")
+if(true) {
+  x[0]=4
+}
+for(int i=0,i<3,i++) {x[i]=0}
 ```
 ### Warning ⚠️
 * Cannot accept any space/blank before keyword before v1.2! 
@@ -103,3 +115,4 @@ print(x+y+z)
 @function<<extern "C" __declspec(dllexport) int add(int a, int b) { return a * b;}>>
 @function<</*>>
 ```
+* [swap](example/swap.cppsp)
