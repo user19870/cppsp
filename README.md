@@ -45,8 +45,8 @@ lib.ini:C:\...\lib1,c:\...\lib2
 * `print()`: print content to console like print("12\n"," ",1," ",2.1,true,false," ")
 * `input()`: input data to variables
 * `var`.....`type`: declare variables with/without values. Support multi variables and type can be written as `int/float/char/string/bool`. <{1+1}> is a value but 1+1 not(it's expression)
-* `if/else/else if(...){...}`:similar to "if/else/else if" in c++ but enable syntax: `if(input(x)>1)`. Can write cppsp keywords and assignment in {...}
-* `for(...){...}`:similae to "for" in c++ like for( type i=0,i<10,i++) or for(int i:x). Can write cppsp keywords and assignment in {...}
+* `if/else/else if(...){...}`:similar to "if/else/else if" in c++ but enable syntax: `if(input(x)>1)`. Can write cppsp keywords and operation( =,+,-,*,/,++....) in {...}
+* `for(...){...}`:similae to "for" in c++ like for( type i=0,i<10,i++) or for(int i:x). Can write cppsp keywords and operation( =,+,-,*,/,++....) in {...}
 * `//`:comment
 ## Syntax
 * `<{...}>` : c++ codea or everything in <{...}> will become an element of cppsp keyowds like:
@@ -67,7 +67,7 @@ var b1 = <{1+1==2}> bool
 input(f1)
 print(a," ",c," ",d," ",b," ",b1," ",f1)
 ```
-* array and assignment:
+* array and operation:
 ```
 import iostream
 var x={1,2,3} int
