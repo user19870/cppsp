@@ -519,15 +519,19 @@ void registcondition(){
         return "else " + argcont + "\n";
     });
         registerToken("for", [](const Token& node) {
-        std::string argcond,argcont,cur,cr,ed;
+        std::string argcond,argcont,cur,cr,ed;std::vector<char> sepg;int sep=0;
         for(auto& root: node.children){
             if(root.value=="("){ argcond="for(";
                 for(auto& cond: root.children){
+                    if(cond.value==";"||cond.value==","){sepg.push_back(cond.value[0]);if(cond.value==";")sep++;}
                    cur= singletoken(cond,";").value;
                     if(cur=="("||cur=="{"){for(auto& p:cond.children){cur+= singletoken(p,",").value;}}
                     if(cond.type==TokenType::IDENTIFIER){cur=" "+cur;}
                     if(cond.type==TokenType::TYPE){cur=(cur=="int")?"long long":(cur=="float")?"double":cur;}
                     argcond+=cur;
+                }
+                if(sep==2){
+                    for(size_t i=0,j=0; i<argcond.size(); i++){ if(argcond[i]==';'){ if(sepg[j]==','){argcond[i]=',';} j++; }}
                 } 
             }
             if(root.value=="{"){ argcont="{";   
