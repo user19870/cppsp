@@ -47,6 +47,7 @@ lib.ini:C:\...\lib1,c:\...\lib2
 * `var`.....`type`: declare variables with/without values. Support multi variables and type can be written as `int/float/char/string/bool`. <{1+1}> is a value but 1+1 not(it's expression)
 * `if/else/else if(...){...}`:similar to "if/else/else if" in c++ but enable syntax: `if(input(x)>1)`. Can write cppsp keywords and operation( =,+,-,*,/,++....) in {...}
 * `for(...){...}`:similae to "for" in c++ like for( type i=0,i<10,i++), for(type i=0,j=10;i<10&&j>0;i++,j++) or for(type i:x) . Can write cppsp keywords and operation( =,+,-,*,/,++....) in {...}
+* `function f()...`:`function f() type {...return...}` will define a function with type, `function f(){...}` will define a void function,`function f()` will declare a void function, `function f(){...return...}`  will define a function with auto in c++. [Usages](example/functionTest.cppsp)
 * `//`:comment
 ## Syntax
 * `<{...}>` : c++ codea or everything in <{...}> will become an element of cppsp keyowds like:
