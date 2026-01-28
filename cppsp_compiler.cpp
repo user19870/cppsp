@@ -436,6 +436,7 @@ Token mergetoken(const Token& node, const std::string& afterSeper) {
        if(node.type == TokenType::TYPE){
           if(node.value=="int"){result.value="long long";result.type = TokenType::TYPE;return result;}
           if(node.value=="float"){result.value="double";result.type = TokenType::TYPE;return result;}
+          if(node.value=="string"){result.value="std::string";result.type = TokenType::TYPE;return result;}
        }
       
       if(node.type == TokenType::IDENTIFIER&&node.children.empty()){
@@ -610,7 +611,7 @@ void registfunckeyword(){
     registerfunc("function",[](const Token& node){
         std::string parag,type,funcname,cont,cr;bool declared=false,guesstype=false;
         for(auto& p:node.children){
-            if(p.type==TokenType::TYPE){type=p.value;type=(type=="int")?"long long":(type=="float")?"double":type;}
+            if(p.type==TokenType::TYPE){type=p.value;type=(type=="int")?"long long":(type=="float")?"double":(type=="string")?"std::string":type;}
             if(p.type==TokenType::funcIDENTIFIER){funcname=p.value;}
             if(p.value=="("){parag="(";
                 for(auto& child:p.children){   parag+=singletoken(child,",").value+" ";}
