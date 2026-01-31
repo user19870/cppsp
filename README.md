@@ -50,8 +50,8 @@ lib.ini:C:\...\lib1,c:\...\lib2
 * `for(...){...}`:similae to "for" in c++ like for( type i=0,i<10,i++), for(type i=0,j=10;i<10&&j>0;i++,j++) or for(type i:x) . Can write cppsp keywords and operation( =,+,-,*,/,++....) in {...}
 * `function f()...`:`function f() type {...return...}` will define a function with type, `function f(){...}` will define a void function,`function f()` will declare a void function, `function f(){...return...}`  will define a function with auto in c++. [Usages](example/functionTest.cppsp)
 ```
-function [std::pow,std::sort,abs,sqrt] // will regist functions from c++
- but template function still need <{...}> like  std::sort(x,x+5,<{ std::greater<int>()}>)
+function [std::pow,std::sort,abs,sqrt] /* will regist functions from c++
+ but template function still need <{...}> like  std::sort(x,x+5,<{ std::greater<int>()}>) */
 ```
 [Usecppfunction](example/Usecppfunction.cppsp)
 * `//`:comment
