@@ -40,7 +40,7 @@ lib.ini:C:\...\lib1,c:\...\lib2
 * `#overwrite`:make `@command()` overwrite g++ .... or clang++ compile command like `@command("g++ -Os -m64 -nostdlib  -shared   -o dll.dll dll.cpp")` and add "*/"  after int main(){..} also add "/\*" in front of int main(){..} 
 *  `#skipcompile` : skip g++/clang++ compile and directly run output
 * `import` :import header in c++ and accept import iostream,cstdio,x,y,.....
-* `@function<<...>>`: inject everything(void()、int()、bool()、even #define and using namespace) in <<...>> to the space under #include above int main()
+* `@function<<...>>`: inject everything(void()、int()、bool()、even #define and using namespace) in <<...>> to the space under #include above int main().**Better not put any word, symbol or blanks but enalbe "enter" or nothing after ">>" to make difference between operation like `a>>b` and <<....>>**
 *  `@inject(...)` :inject everything in (...) to int main(){...}  ----`＠inject(....)`and `＠inject("....")` are both legal. ＠inject(....) belonging to line ast and ＠inject("....") belonging to token ast  but ＠inject(....) will be transpiled before ＠inject("....") and any keyword belonging to token ast.)
 * `print()`: print content to console like print("12\n"," ",1," ",2.1,true,false," ")
 * `input()`: input data to variables
@@ -114,6 +114,5 @@ print(x+y+z)
 #overwrite
 @command("g++ -Os -m64 -nostdlib  -shared   -o dll.dll dll.cpp")
 @function<<extern "C" __declspec(dllexport) int add(int a, int b) { return a * b;}>>
-@function<</*>>
 ```
 * [swap](example/swap.cppsp)
