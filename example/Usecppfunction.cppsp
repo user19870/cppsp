@@ -1,0 +1,17 @@
+import <cmath>,iostream,algorithm
+ 
+ function [std::pow,std::sort,abs,sqrt]
+ 
+ function e()float{return 1}
+
+ var x,y ={3,5,e(),2,std::pow(7,3)} float 
+
+ std::sort(x,x+5,<{ std::greater<int>()}>)
+ for(int i:x){x[0]++
+  print(i," ") 
+ }
+ print(" ",std::pow(2,3),",",abs(-3),",",sqrt(9))
+ 
+y=e()
+y=4.6; y++ ;y++
+ 
