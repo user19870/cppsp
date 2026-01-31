@@ -23,6 +23,6 @@ function countdown(int n) {
 function m() 
 var a,b,tmp ={1,2,3},{4,5,test(1,2,9)},complement(10) int
  
-g() g() a() countdown(10)  //a() will be ignored
+g() g() a() countdown(10)  //a() will be treated as a var and output "a" just like other vars
 print(a[2]," ",b[2]," ",tmp)
  
