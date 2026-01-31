@@ -34,6 +34,7 @@ lib.ini:C:\...\lib1,c:\...\lib2
 * can use c++ code  by @inject and @function
 * enable indentation and multi-line after v1.3
 * declare multi variables with `var`.....`type`
+* control variables inside keyword or globle
 ## Keyword
 * `#useclang` or `#usegcc` : use clang++ or g++ compile command
 * `@command("...")`: add command when compile like:-Os、-m64
@@ -48,8 +49,17 @@ lib.ini:C:\...\lib1,c:\...\lib2
 * `if/else/else if(...){...}`:similar to "if/else/else if" in c++ but enable syntax: `if(input(x)>1)`. Can write cppsp keywords and operation( =,+,-,*,/,++....) in {...}
 * `for(...){...}`:similae to "for" in c++ like for( type i=0,i<10,i++), for(type i=0,j=10;i<10&&j>0;i++,j++) or for(type i:x) . Can write cppsp keywords and operation( =,+,-,*,/,++....) in {...}
 * `function f()...`:`function f() type {...return...}` will define a function with type, `function f(){...}` will define a void function,`function f()` will declare a void function, `function f(){...return...}`  will define a function with auto in c++. [Usages](example/functionTest.cppsp)
+```
+function [std::pow,std::sort,abs,sqrt] // will regist functions from c++ but template function still need <{...}> like <{ std::greater<int>()}>
+```
+[Usecppfunction](example/Usecppfunction.cppsp)
 * `//`:comment
 ## Syntax
+* control variables in cppsp once a line or separate by ;
+  ```
+y=e()
+y=4.6; y++ ;y++
+  ```
 * `<{...}>` : c++ codea or everything in <{...}> will become an element of cppsp keyowds like:
  ```
   import math.h,iostream
