@@ -49,7 +49,9 @@ enum class TokenType {
     INJECT,     //12 <<...>> 內嵌程式碼
     funcKEYWORD,    //13 函數關鍵字: 
     funcIDENTIFIER,    //14 函數名稱:
-    UNKNOWN     //15 未知
+    NAMESPACELIKE, //15 C++中使用 n::child呼叫
+    STRUCTLIKE, //16 C++中使用 n.child呼叫
+    UNKNOWN     //17 未知
 
 };
 struct Token {
@@ -67,10 +69,10 @@ struct TokenizeState {
     bool inBlockComment = false;
 };
 TokenizeState state={0,false,false};
-bool isTypeKeyword(const std::string& s) {
-    static const std::unordered_set<std::string> typeKeywords = {
-        "int", "float", "bool", "char", "string","auto"
+std::unordered_set<std::string>  typeKeywords= {
+        "int", "float", "bool", "char", "string","struct"
     };
+bool isTypeKeyword(const std::string& s) {
     return typeKeywords.find(s) != typeKeywords.end();
 }
  
@@ -95,6 +97,8 @@ void registerToken(const std::string& name, tokencallback handler) {
 }
 
 std::unordered_map<std::string, tokencallback> funcHandlers;std::unordered_set<std::string> what_is_funcname;
+std::unordered_set<std::string> what_is_namespace_like;
+std::unordered_set<std::string> what_is_struct_like;
 void registerfunc(const std::string& name, tokencallback handler) {
     funcHandlers[name] = handler;
 }
@@ -187,10 +191,12 @@ auto justconnectidentifier = [&](size_t& idx) -> Token {
         skipWhitespace(i);
         if (i >= src.size()) break;
 
-        //import
-         if ( i + 1 < src.size()&&src[i] == 'i'  && src[i + 1] == 'm' && src[i + 2] == 'p' && src[i + 3] == 'o' && src[i + 4] == 'r' && src[i + 5] == 't') {
-            std::string Inimport;Token node{TokenType::KEYWORD, "import", lineno, {}}; 
-            i+=6;
+        //單行判斷的關鍵字類似import a,b,c...
+        std::vector<std::string> regkw={"import","module"};
+        for(auto regk:regkw){
+            if ( i + 1 < src.size()&&src.compare(i,regk.size(),regk)==0) {
+            std::string Inimport;Token node{TokenType::KEYWORD, regk, lineno, {}}; 
+            i+=regk.size();
             while (i < src.size() && src[i] != '\n') {
                 Inimport += src[i++];
             }
@@ -198,6 +204,9 @@ auto justconnectidentifier = [&](size_t& idx) -> Token {
             root.children.push_back(node);
             continue;
         }
+        }
+       
+         
 
         // 單行註解
         if (src[i] == '/' && i + 1 < src.size() && src[i + 1] == '/') {
@@ -288,7 +297,8 @@ auto justconnectidentifier = [&](size_t& idx) -> Token {
             }
 
         if (!root.children.empty() && (root.children.back().type == TokenType::KEYWORD
-                 ||root.children.back().type==TokenType::funcIDENTIFIER||root.children.back().type==TokenType::funcKEYWORD) ){ 
+                 ||root.children.back().type==TokenType::funcIDENTIFIER||root.children.back().type==TokenType::funcKEYWORD
+                ||root.children.back().type==TokenType::NAMESPACELIKE||root.children.back().type==TokenType::STRUCTLIKE) ){ 
                 if (!inner.empty()) {  //變成關鍵字子節點
                std::istringstream ss(inner);Token iner=tokenizeFile(ss,inner_lineno);
                for(auto& child : iner.children){  node.children.push_back(child); // 不再使用 reinterpret_cast
@@ -414,6 +424,12 @@ else   {
                     
 
             }
+            if(what_is_struct_like.find(invar.children.back().value) != what_is_struct_like.end()){
+                for(Token& p:invar.children){
+                    if(p.type==TokenType::IDENTIFIER){std::cout<<"!!!!!!!!!!!";p.type==TokenType::STRUCTLIKE;
+                    what_is_struct_like.insert(p.value);}
+                }
+            }
             
  
            
@@ -470,18 +486,35 @@ if (matched) continue;
                 
                 if(root.children.back().value=="@function"){if (what_is_funcname.find(v.value) != what_is_funcname.end()&&v.type != TokenType::TYPE)   v.type = TokenType::funcIDENTIFIER;
                     root.children.push_back(v);continue;}
-                    if(v.type != TokenType::TYPE) v.type = TokenType::funcIDENTIFIER;
-                    what_is_funcname.insert(v.value);
+                    if(root.children.back().value=="function"){
+                      if(v.type != TokenType::TYPE) v.type = TokenType::funcIDENTIFIER;
+                      what_is_funcname.insert(v.value);
+                    }else{
+                        
+                         if(root.children.back().value=="namespace"){what_is_namespace_like.insert(v.value); if(v.type != TokenType::TYPE) v.type = TokenType::NAMESPACELIKE;}
+                    else  if(root.children.back().value=="struct"){what_is_struct_like.insert(v.value); typeKeywords.insert(v.value); if(v.type != TokenType::TYPE) v.type = TokenType::STRUCTLIKE;}
+                    }
+                     
+                   
                       if(!root.children.back().children.empty()&&!root.children.back().children.back().children.empty() 
                       && (root.children.back().children.back().children.back().value== "}"||root.children.back().children.back().children.back().value=="]")&&v.type != TokenType::TYPE) {v.type = TokenType::IDENTIFIER; root.children.push_back(v);continue;} 
                       //上面那段用來避免全域呼叫被丟到function底下 
                       for(auto &child:root.children.back().children){ if (what_is_funcname.find(child.value) != what_is_funcname.end())hasfuncname=true;}
-                      if(hasfuncname&&v.type!=TokenType::TYPE){v.type = TokenType::IDENTIFIER;root.children.push_back(v);continue;}
+                      if(hasfuncname&&v.type!=TokenType::TYPE&&!(what_is_struct_like.find(root.children.back().value) != what_is_struct_like.end())
+                    ){v.type = TokenType::IDENTIFIER;root.children.push_back(v);continue;}
                     root.children.back().children.push_back(v);
                 }
                 else{
-                    if (what_is_funcname.find(v.value) != what_is_funcname.end()&&v.type != TokenType::TYPE)   v.type = TokenType::funcIDENTIFIER;
-                    if(whole.value==v.value){root.children.push_back(v);}
+                    if (what_is_funcname.find(v.value) != what_is_funcname.end()&&v.type != TokenType::TYPE
+                )  v.type = TokenType::funcIDENTIFIER;
+                if (what_is_namespace_like.find(v.value) != what_is_namespace_like.end()&&v.type != TokenType::TYPE
+                ) v.type = TokenType::NAMESPACELIKE;
+                if (what_is_struct_like.find(v.value) != what_is_struct_like.end()&&v.type != TokenType::TYPE
+                ) v.type = TokenType::STRUCTLIKE;
+                if(!root.children.empty()&& root.children.back().type == TokenType::TYPE&&what_is_struct_like.find(root.children.back().value) != what_is_struct_like.end()) {
+                        what_is_struct_like.insert(v.value);v.type=TokenType::STRUCTLIKE;root.children.push_back(v);continue;}
+
+                    if(whole.value==v.value){root.children.push_back(v);} //沒有a.b.c只有一層
                     else{Token* cur = &node;//指向node地址
                         if(depth==1){node=v;cur=&node;}
                     if(depth>1){
@@ -508,6 +541,38 @@ if (matched) continue;
 // ====== token 執行接口 ======
 // runTokenFunc 對應原 funcfile while，執行 token handler
  
+std::string sumLeftparen(const Token& node) {
+    std::string result=node.value;
+    
+ 
+    for(auto& p:node.children){result+=sumLeftparen(p);}    
+   
+    return result;
+}
+
+std::string AdotBdotC(const Token& node,std::string spepar="") {
+    std::string result=node.value,callb,sp,cur;
+     if(node.type==TokenType::NAMESPACELIKE) sp="::";else if(node.type==TokenType::STRUCTLIKE) sp="."; else sp=spepar;
+    if(node.value.find(".")!=std::string::npos){
+        if(node.children.empty()){ cur=node.value.substr(node.value.find(".")+1,node.value.size()-1);return spepar+cur; }
+        else { cur=node.value.substr(node.value.find(".")+1,node.value.size()-1);cur+=AdotBdotC(node.children[0],sp);return spepar+cur; }
+    }
+    for(auto& p:node.children){
+      if(p.value=="(")  callb+=sumLeftparen(p);
+     else result+=AdotBdotC(p,sp);}    
+    return result+" "+callb;
+}
+
+std::string sumLeftbrackets(const Token& node) {
+    std::string result=node.value;
+    if(node.type==TokenType::NAMESPACELIKE||node.type==TokenType::STRUCTLIKE){result= AdotBdotC(node);return result;}
+    for(auto& p:node.children){
+         
+         result+=sumLeftbrackets(p);}    
+   
+    return result;
+}
+
 Token mergetoken(const Token& node, const std::string& afterSeper) {
 
       if(node.type == TokenType::STRING){return node;} 
@@ -532,6 +597,7 @@ Token mergetoken(const Token& node, const std::string& afterSeper) {
       if(node.type == TokenType::OPERATOR){result.type = TokenType::NUMBER; return node;}
       if(node.type == TokenType::INJECT){result.type = TokenType::INJECT; return node;}
       if(node.value=="<{"||node.value=="}>" ){return result;}
+      if(node.value=="{"){result.value+=sumLeftbrackets(node);return result;}
       if(node.type==TokenType::funcIDENTIFIER){
                 result.value=node.value+"("; 
                 for(auto& p:node.children[0].children){result.value+=singletoken(p,",").value;}
@@ -541,16 +607,22 @@ Token mergetoken(const Token& node, const std::string& afterSeper) {
            
           if(node.value=="float"){result.value="double";result.type = TokenType::TYPE;return result;}
           if(node.value=="string"){result.value="std::string";result.type = TokenType::TYPE;return result;}
+          if(what_is_struct_like.find(node.value)!=what_is_struct_like.end()){result=node;result.value+=" ";return result;}
        }
       
-      if(node.type == TokenType::IDENTIFIER&&node.children.empty()){
+    if(node.type == TokenType::IDENTIFIER&&node.children.empty()){
         if(node.value=="true"||node.value=="false"){Token tfbool;tfbool.type=TokenType::STRING;
-            result.type = TokenType::KEYWORD;tfbool.value="\""+node.value+"\""; return tfbool;}else{
+            result.type = TokenType::KEYWORD;//tfbool.value="\""+node.value+"\"";
+           tfbool.value=node.value;  return tfbool;}else{
         result.type = TokenType::IDENTIFIER; return node;}  }
-        if(node.type == TokenType::KEYWORD&& !node.children.empty()&&!boolkey){ auto it = tokenHandlers.find(node.value);Token k;k.type=TokenType::UNKNOWN;if (it != tokenHandlers.end()){
+    if(node.type==TokenType::NAMESPACELIKE||node.type==TokenType::STRUCTLIKE){Token n=node;n.value=AdotBdotC(node);return n;}
+    if(node.type == TokenType::KEYWORD&& !node.children.empty()&&!boolkey){ auto it = tokenHandlers.find(node.value);Token k;k.type=TokenType::UNKNOWN;if (it != tokenHandlers.end()){
             k.value=it->second(node);
         }return k; }
- if (node.type == TokenType::SEPARATOR) {Token aftp;aftp.type=TokenType::SEPARATOR;result.type = TokenType::SEPARATOR;aftp.value=afterSeper; return  aftp;}
+    if(node.type == TokenType::funcKEYWORD& !node.children.empty()&&!boolkey){ auto it = funcHandlers.find(node.value);Token k;k.type=TokenType::UNKNOWN;if (it != funcHandlers.end()){
+            k.value=it->second(node);
+        }return k; }
+    if (node.type == TokenType::SEPARATOR) {Token aftp;aftp.type=TokenType::SEPARATOR;result.type = TokenType::SEPARATOR;aftp.value=afterSeper; return  aftp;}
     return node; }
 
     Token injecttoken(const Token& node) {
@@ -563,13 +635,6 @@ if(node.type !=TokenType::ROOT) return node;
 
     return result; }
 
-std::string sumLeftparen(const Token& node) {
-    std::string result=node.value;
-
-    for(auto& p:node.children){result+=sumLeftparen(p);}    
-   
-    return result;
-}
 std::string runTokenFunc(const Token& node) {
       std::string result;
          auto it = funcHandlers.find(node.value);
@@ -600,7 +665,7 @@ std::string runToken(const Token& node) {
         return "";  // 傳入整個 KEYWORD 節點
     }
 
-    if(node.type==TokenType::funcIDENTIFIER){
+    if(node.type==TokenType::funcIDENTIFIER&&!node.children.empty()){
                 result=node.value+"("; 
                 for(auto& p:node.children[0].children){if(p.value=="("){result+=sumLeftparen(p);continue;}
                     result+=singletoken(p,",").value;
@@ -610,9 +675,16 @@ std::string runToken(const Token& node) {
 
            if(node.type==TokenType::IDENTIFIER||node.type==TokenType::STRING||node.type==TokenType::NUMBER
                     ||node.type==TokenType::CHAR||node.type==TokenType::OPERATOR||node.type==TokenType::SEPARATOR){
+                        
                          if(((node.value.find('.') != std::string::npos&&node.type!=TokenType::NUMBER) || (!node.children.empty() &&
          node.children.back().value.find('.') != std::string::npos) )) return "";//a.b.c節點跳過，另外處理
-                        result+=node.value;}
+                        result+=node.value;
+                    
+                    }
+            if(node.type==TokenType::NAMESPACELIKE||node.type==TokenType::STRUCTLIKE){return AdotBdotC(node);}
+
+         if(node.value=="{"){result+=sumLeftbrackets(node);return result;}   
+         if(what_is_struct_like.find(node.value)!=what_is_struct_like.end()){return node.value+" ";}
      
 
 
@@ -670,7 +742,7 @@ void registcondition(){
                     argcont+=cr;
                     if(cont.type==TokenType::IDENTIFIER||cont.type==TokenType::STRING||cont.type==TokenType::NUMBER
                     ||cont.type==TokenType::CHAR||cont.type==TokenType::INJECT||cont.type==TokenType::OPERATOR||cont.value=="("
-                    ||cont.type==TokenType::funcIDENTIFIER
+                    ||cont.type==TokenType::funcIDENTIFIER||cont.type==TokenType::NAMESPACELIKE||cont.type==TokenType::STRUCTLIKE
                     ){ if( root.children[i+1].value=="}"||root.children[i+1].line_number==cont.line_number+1){ argcont+=";\n";}
                         }   
                 } }
@@ -691,7 +763,7 @@ void registcondition(){
                     argcont+=cur;
                     if(cont.type==TokenType::IDENTIFIER||cont.type==TokenType::STRING||cont.type==TokenType::NUMBER
                     ||cont.type==TokenType::CHAR||cont.type==TokenType::INJECT||cont.type==TokenType::OPERATOR||cont.value=="("
-                    ||cont.type==TokenType::funcIDENTIFIER
+                    ||cont.type==TokenType::funcIDENTIFIER||cont.type==TokenType::NAMESPACELIKE||cont.type==TokenType::STRUCTLIKE
                     ){ if( root.children[i+1].value=="}"||root.children[i+1].line_number==cont.line_number+1){ argcont+=";\n";}
                         }   
                 } }
@@ -722,7 +794,7 @@ void registcondition(){
                     argcont+=cr;
                     if(cont.type==TokenType::IDENTIFIER||cont.type==TokenType::STRING||cont.type==TokenType::NUMBER
                     ||cont.type==TokenType::CHAR||cont.type==TokenType::INJECT||cont.type==TokenType::OPERATOR||cont.value=="("
-                    ||cont.type==TokenType::funcIDENTIFIER
+                    ||cont.type==TokenType::funcIDENTIFIER||cont.type==TokenType::NAMESPACELIKE||cont.type==TokenType::STRUCTLIKE
                     ){ if( root.children[i+1].value=="}"||root.children[i+1].line_number==cont.line_number+1){ argcont+=";\n";}
                         }   
                 } }
@@ -753,7 +825,7 @@ void registfunckeyword(){
                     cont+=cr;
                     if(child.type==TokenType::IDENTIFIER||child.type==TokenType::STRING||child.type==TokenType::NUMBER
                     ||child.type==TokenType::CHAR||child.type==TokenType::INJECT||child.type==TokenType::OPERATOR||child.value=="("
-                    ||child.type==TokenType::funcIDENTIFIER
+                    ||child.type==TokenType::funcIDENTIFIER||child.type==TokenType::NAMESPACELIKE||child.type==TokenType::STRUCTLIKE
                     ){ if( p.children[i+1].value=="}"||p.children[i+1].line_number==child.line_number+1){ cont+=";\n";}
                         
                         } 
@@ -781,6 +853,32 @@ void registfunckeyword(){
             if(p.type==TokenType::INJECT) rs+=p.value;
         }
         return rs+"\n";
+     });
+      registerfunc("namespace",[](const Token& node){
+         std::string result,namespa; 
+         for(auto& child:node.children){
+            if(child.type==TokenType::NAMESPACELIKE){namespa=child.value;}
+            if(child.value=="{"){ result="namespace "+namespa+"{";   
+                for( auto& cont:child.children){
+                      result+=singletoken(cont,";").value;
+                } }
+         }
+        return result+"\n";
+     });
+      registerfunc("struct",[](const Token& node){
+        std::string result,struc; 
+         for(auto& child:node.children){
+            if(child.type==TokenType::STRUCTLIKE){struc=child.value;}
+            if(child.value=="{"){ result="struct "+struc+"{";   
+                for( auto& cont:child.children){
+                      result+=singletoken(cont,";").value;
+                } }
+         }
+        return result+";\n";
+     });
+    registerfunc("export",[](const Token& node){
+         
+        return "";
      });
 }
 // ======token區域=======
@@ -951,7 +1049,29 @@ std::string parseIni(const std::string& path, const std::string& flag) {
     std::string token;
     while (std::getline(ss, token, ',')) {
         if (!token.empty()) {
-            result +=  flag+ "\"" + token + "\" ";
+             result +=  flag+ "\"" + token + "\" ";
+             
+        }
+    }
+    
+    }
+    return result;
+}
+
+std::string moduleIni(const std::string& path) {
+    std::ifstream infile(path);
+    if (!infile) return "";
+
+    std::string line; 
+    std::string result;
+    while(std::getline(infile, line)){
+    std::stringstream ss(line);
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+        if (!token.empty()) {
+            if(ss.peek()==EOF) result += token;
+            else result +=   token+",";
+             
         }
     }
     
@@ -985,22 +1105,28 @@ int main(int argc, char* argv[]) {
      registerToken("@command", [](const Token& node){return "";}); registerToken("#overwrite", [](const Token& node){return "";}); 
      registerToken("#skipcompile", [](const Token& node){return "";}); 
       registerToken("var", [](const Token& node){
-             std::string arga,type,optrar,cur;int vat=1;std::vector<std::string> n;std::vector<Token> c;
+             std::string arga,type,optrar,cur,botf;int vat=1;std::vector<std::string> n;std::vector<Token> c;
              type=node.children.back().value;
              for (auto& child : node.children){
                 if(child.type==TokenType::OPERATOR){optrar=child.value;}
                 if(child.type==TokenType::funcIDENTIFIER){c.push_back(singletoken(child,","));}
-                if(child.type==TokenType::IDENTIFIER){ n.push_back(child.value);}
+                if(child.type==TokenType::IDENTIFIER){
+                    if(optrar=="") n.push_back(child.value);else c.push_back(child);
+                }
+                if(child.type==TokenType::NAMESPACELIKE){
+                    if(optrar=="") {n.push_back(AdotBdotC(child));}else{Token dotchain={TokenType::IDENTIFIER,AdotBdotC(child),child.line_number,{}};c.push_back(dotchain);}
+                } 
                 else if(child.type==TokenType::STRING||child.type==TokenType::NUMBER||child.type==TokenType::CHAR||child.type==TokenType::INJECT){
                     c.push_back(child);}
                 else if(child.value=="{"){cur="{";
                     for(auto& p:child.children){
                        
                         if(p.type==TokenType::funcIDENTIFIER){cur+=singletoken(p,",").value+" ";}
-                        else { cur+=p.value;if(p.value=="("){for(auto& child:p.children){   cur+=singletoken(child,",").value+" ";}}}
+                        else {  botf=singletoken(p,",").value;if(botf=="\"ture\"")botf="true";if(botf=="\"false\"")botf="false";
+                            cur+=botf;}
                         
                       } 
-                     c.push_back({TokenType::STRING,cur,child.line_number,{}});cur="";n[c.size()-1]+="[]";}
+                    c.push_back({TokenType::STRING,cur,child.line_number,{}});cur="";n[c.size()-1]+="[]";}
                 if(child.type==TokenType::SEPARATOR)vat++;     
              }
              for(size_t i=0;i<n.size();i++){
@@ -1013,6 +1139,8 @@ int main(int argc, char* argv[]) {
                  else if(type=="float"){arga+="double "+n[i]+op+val+";";}
                  else if(type=="bool"){arga+="bool "+n[i]+op+val+";";}
                  else if(type=="char"){arga+="char "+n[i]+op+val+";";}
+                 else if(what_is_struct_like.find(type)!=what_is_struct_like.end()){n[i].pop_back();n[i].pop_back();
+                     arga+=type+" "+n[i]+op+val+";";}
  
                 }else{
                     if(n[i].empty())  break;
@@ -1055,6 +1183,8 @@ int main(int argc, char* argv[]) {
              if(curtoken.type==TokenType::INJECT){ args+=(Ifiostream)?"std::cout<<"+cur:"printf(" + cur;}
              if(curtoken.type==TokenType::IDENTIFIER){
                 if(!opt){args+=(Ifiostream)?"std::cout<<"+cur:"printf("+cur;} else{args+=cur;}}
+             if(child.type==TokenType::NAMESPACELIKE||child.type==TokenType::STRUCTLIKE){
+                if(!opt){args+=(Ifiostream)?"std::cout<<"+AdotBdotC(child):"printf("+AdotBdotC(child);}else{args+=AdotBdotC(child);} }
             if(child.type==TokenType::KEYWORD){
                          args+=singletoken(child,"").value;std::string varinside=child.children[0].children[0].value;
                          args+=(Ifiostream)?"std::cout<<"+varinside:"printf("+varinside;
@@ -1074,6 +1204,8 @@ registerToken("input",[](const Token& node){
      for (const auto& child : root) {
         if(child.type==TokenType::IDENTIFIER) args+="std::cin>>"+child.value+";\n";
         if(child.type==TokenType::INJECT) args+="std::cin>>"+child.value+";\n";
+        if(child.type==TokenType::NAMESPACELIKE||child.type==TokenType::STRUCTLIKE){args+="std::cin>>"+ AdotBdotC(child)+";\n";}
+        
     }
     return  args;
 });
@@ -1155,6 +1287,10 @@ registerCommand("@function","<<",">>",  [](const std::string& args) {
         return 1;
     }
 
+    std::string modulefolder = moduleIni("module.ini");
+    std::cerr<<modulefolder;
+      
+
     std::ifstream tokenfile(cpsPath);
    Token root = tokenizeFile(tokenfile,1);
     tokenstream.push_back(root);
@@ -1212,10 +1348,10 @@ if (!comment && svimportline.find("import ") != std::string::npos) {
 
 
      for(auto& p:tokenstream) {std::string tokcode=runTokenFunc(p);outfile << tokcode;}
-   /*  
+    
     for(auto& p:tokenstream){
        printToken(p);
-    }*/
+    }
 
     if(enableoverwrite) outfile << "/*";
         outfile << "int main() {\n";
