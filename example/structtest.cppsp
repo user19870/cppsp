@@ -1,0 +1,29 @@
+import iostream,vector
+   struct  S{
+   var a,aaa int
+   var bb float
+   var c char
+   var d string
+   var e bool
+ }
+ struct veci{
+  @inject("std::vector<int> veci;")
+ }
+ 
+  function te(S x) int{
+  return x.aaa
+ }
+ struct enum
+ S xx={1,1,2.3,'a',"hello",true}
+ var yy = {1,1,124.3,'a',"hello",true} S 
+ var i ={{1,2,3}} veci
+ 
+for(int f: i.veci){
+  var tmp int 
+  input(tmp)
+  f=tmp
+  print(f)
+    
+}
+ 
+ print(te(yy))
