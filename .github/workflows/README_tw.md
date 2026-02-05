@@ -4,7 +4,7 @@ cppsp是一個轉譯式語言(原始碼轉原始碼)，可以把.cppsp檔案轉�
 * [中文](README_tw.md)
 ## 安裝
 * 準備c++編譯器(gcc/clang)並設定到環境變數，讓cppsp可以呼叫g++、clang++指令
-* 下載cppsp_compiler.exe或linux、mac版本或自己編譯
+* [到官網](https://github.com/user19870/cppsp)下載cppsp_compiler.exe或linux、mac版本或自己編譯
 * 可以(不強制)把cppsp_compiler所在資料夾設定到環境變數
 * 下載linux/mac版本時記得刪除後面的_linux.delete_linux、_mac.delete_mac
 * (可選)修改cppsp_compiler.exe(或cppsp_compiler)名稱成任意名稱來更改編譯指令，例如改成cppsp、abcdef....
@@ -35,17 +35,60 @@ lib.ini:C:\...\lib1,c:\...\lib2
 * 只有print("hello world")也能編譯
 * 可以只用所有c++標頭
 * 可以用 @inject and @function 注入c++程式碼
+* 使用var...type宣告
+* 能在關鍵字和全域控制變數
 ## 關鍵字
 * `#useclang` 或 `#usegcc` : 使用clang/gcc編譯
 * `@command("...")`: 把參數加入編譯指令:-Os、-m64
-* `#overwrite`:讓 `@command()` 覆蓋整個編譯指令: `@command("g++ -Os -m64 -nostdlib  -shared   -o dll.dll dll.cpp")` 並在 int main(){..}後自動加 */，需要手動 `＠funcion<</\*>>` 把main()註解掉，且原來生成在main()的print()等也會被註解
+* `#overwrite`:讓 `@command()` 覆蓋整個編譯指令: `@command("g++ -Os -m64 -nostdlib  -shared   -o dll.dll dll.cpp")` 並在 int main(){..}後分別自動加/*和*/
 * `#skipcompile` :跳過編譯直接執行結果
 * `import` :使用c++標頭(不需要<>、"") `import iostream,cstdio,x,y,.....`
-* `@funcuion<<...>>`:  把原生c++程式碼注入到#include 後面 int main()前面
+* `@function<<...>>`:  把原生c++程式碼注入到#include 後面 int main()前面
    `@inject(...)` : 把程式碼注入到int main(){...}
 * `print()`: 把內容輸出到終端/控制台 `print("12\n"," ",1," ",2.1,true,false," ")`
-* `input()`:  輸入變數但必須配合 `@inject()` 宣告變數
+* `input()`:  輸入變數如 `input(a,b,c)`
+* `var` ....`type` 可以宣告變數，允許多變數宣告，且宣告必須為值不能是算式，但可以用<{....}>把c++程式碼當成值來宣告，type只允許int/float/char/string/bool 
+* `if/else/else if(...){...}` :跟c++的類似，但允許`if(input(x)>1)`，可以在{...}裡面寫變數操作(=,+,-,*,/,++....)和cppsp關鍵字
+* `for(...){...}`: 支持`for( type i=0,i<10,i++)`、`for(type i=0,j=10;i<10&&j>0;i++,j++)`、`for(type i:x)`等多種方式，可以在{...}裡面寫變數操作(=,+,-,*,/,++....)和cppsp關鍵字
+* `function f()...`:`function f() type {...return...}`可以定義有型別函數、 `function f(){...}`定義void函數、`function f()`宣告void函數、`function f(){...return...}`定義函數並使用c++的auto型別
+```
+function [std::pow,std::sort,abs,sqrt] // 註冊來自c++的函數但具有模板的函數依然需要<{...}>例如 std::sort(x,x+5,<{ std::greater<int>()}>)
+```
 * `//`:註解
+## 語法
+* 一行控制一個變數或用逗號隔開
+```
+y=e()
+y=4.6; y++ ;y++
+```
+* `<{...}> `:會把裡面的c++程式碼或所有東西當成cppsp關鍵字的元素例如:
+```
+ import math.h,iostream
+print( <{pow(2,3)}>)
+```
+* `var`...`type`:
+```
+import  string,iostream
+var a,c,d =  1,
+<{(2*2+6)/2}>
+,4 int
+var b = "hello world" string
+var f1,f2,f3 float
+var c1 char
+var b1 = <{1+1==2}> bool
+input(f1)
+print(a," ",c," ",d," ",b," ",b1," ",f1)
+```
+* 陣列和變數操作:
+```
+import iostream
+var x={1,2,3} int
+@inject("x[0]=3;x[1]=2; x[2]=1;")
+if(true) {
+  x[0]=4
+}
+for(int i=0,i<3,i++) {x[i]=0}
+```
 ### 注意事項 ⚠️
 * v1.2前關鍵字強制靠左沒有空格! 
 * v1.3前關鍵字的()、<< >>不能跨行!
@@ -84,3 +127,4 @@ print(x+y+z)
 @function<<extern "C" __declspec(dllexport) int add(int a, int b) { return a * b;}>>
 @function<</*>>
 ```
+[更多範例](https://github.com/user19870/cppsp/tree/First/example)
