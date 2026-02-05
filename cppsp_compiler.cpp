@@ -426,7 +426,7 @@ else   {
             }
             if(what_is_struct_like.find(invar.children.back().value) != what_is_struct_like.end()){
                 for(Token& p:invar.children){
-                    if(p.type==TokenType::IDENTIFIER){std::cout<<"!!!!!!!!!!!";p.type==TokenType::STRUCTLIKE;
+                    if(p.type==TokenType::IDENTIFIER){ p.type==TokenType::STRUCTLIKE;
                     what_is_struct_like.insert(p.value);}
                 }
             }
@@ -1348,10 +1348,10 @@ if (!comment && svimportline.find("import ") != std::string::npos) {
 
 
      for(auto& p:tokenstream) {std::string tokcode=runTokenFunc(p);outfile << tokcode;}
-    
+    /*
     for(auto& p:tokenstream){
        printToken(p);
-    }
+    }*/
 
     if(enableoverwrite) outfile << "/*";
         outfile << "int main() {\n";
