@@ -54,6 +54,7 @@ lib.ini:C:\...\lib1,c:\...\lib2
 ```
 function [std::pow,std::sort,abs,sqrt] // 註冊來自c++的函數但具有模板的函數依然需要<{...}>例如 std::sort(x,x+5,<{ std::greater<int>()}>)
 ```
+* `struct S{...}` :定義一個結構體，結構體名稱會成為型別，所以可以使用var ... S之類的用法
 * `//`:註解
 ## 語法
 * 一行控制一個變數或用逗號隔開
