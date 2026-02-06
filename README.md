@@ -62,7 +62,7 @@ function [std::pow,std::sort,abs,sqrt] // will regist functions from c++
 y=e()
 y=4.6; y++ ;y++
 ```
-* `<{...}>` : c++ codea or everything in <{...}> will become an element of cppsp keyowds like:
+* `<{...}>` : c++ code or everything in <{...}> will become an element of cppsp keyowds like  :
 ```
   import math.h,iostream
 print( <{pow(2,3)}>)
