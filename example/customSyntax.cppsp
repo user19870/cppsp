@@ -1,0 +1,39 @@
+import iostream,vector
+ @function<< class B{int aa;};>>
+namespace fromcpp{
+@custom  tem("template<typename T> ")
+struct T  
+//use struct to declare a type
+}
+ //c++ Generics
+  fromcpp.tem()
+function add(T a,T b) T{return a+b}
+  //Generics with c++ template
+@custom cs("< ",<{T}>," >")
+ print(add cs(int) (1,2) )
+ add cs(int)  (1,2) 
+
+ 
+ //use cppsp template to generate STL container
+@custom vec("std::vector<",<{T}>,"> ")
+@custom decl(<{name}>,";")
+@custom def(<{name}>,"=",<{value}>,";")
+vec(int) ;decl(a)
+vec(vec(char)); def(b,{{'a','b','c','d','e'}})
+ //cppsp way to use Generics 
+@custom subs(<{T}>," sub(",<{T a}>,",",<{T b}>,")"," {return a-b;}")
+subs(int ,int a,int b)
+function [sub]
+print("\n",sub(3,4))
+ @custom class("class ",<{T}>,"{",<{body}>,"};")
+ class(obja,var a int
+  var s,ss string
+  var f float
+ 
+ )
+@custom auto("auto ",<{name}>," = [",<{cap}>,"]","(",<{param}>,")","{",<{body}>,";};")
+if(true){
+    auto(x,&,int a,return a+1)
+    function [x]
+    print("\n auto:",x(9))
+}
