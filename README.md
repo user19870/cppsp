@@ -54,7 +54,7 @@ function [std::pow,std::sort,abs,sqrt] // will regist functions from c++
 // but template function still need <{...}> like  std::sort(x,x+5,<{ std::greater<int>()}>) 
 ```
 [Usecppfunction](example/Usecppfunction.cppsp)
-* [`struct S{...}`](example/structtest.cppsp) : define a structure and the name of structure will become a type ,so can use something like var....S
+* [`struct S{...}`](example/structtest.cppsp) : define a structure and the name of structure will become a type ,so can use something like var....S. If write `struct a b c`without `{}` a ,b, and c will become type but won't generate any c++ code
 * `//`:comment
 ## Syntax
 * control variables in cppsp once a line or separate by `;`
