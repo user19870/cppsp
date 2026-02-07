@@ -99,6 +99,7 @@ void registerToken(const std::string& name, tokencallback handler) {
 std::unordered_map<std::string, tokencallback> funcHandlers;std::unordered_set<std::string> what_is_funcname;
 std::unordered_set<std::string> what_is_namespace_like;
 std::unordered_set<std::string> what_is_struct_like;
+std::unordered_set<std::string> custom_command;std::unordered_map<std::string,std::vector<Token>> custom_command_arg;
 void registerfunc(const std::string& name, tokencallback handler) {
     funcHandlers[name] = handler;
 }
@@ -121,7 +122,7 @@ Token tokenizeFile(std::istream& funcfile,size_t lineno = 1) {
         while (idx < src.size()) {
             if (src[idx] == ' ' || src[idx] == '\t') {
                 idx++;
-            } else if (src[idx] == '\n') {root.children.push_back({TokenType::SEPARATOR,";",lineno,{}});
+            } else if (src[idx] == '\n') {  root.children.push_back({TokenType::SEPARATOR,";",lineno,{}});
                 lineno++;
                 idx++;
             } else {
@@ -214,7 +215,7 @@ auto justconnectidentifier = [&](size_t& idx) -> Token {
             while (i < src.size() && src[i] != '\n') {
                 comment += src[i++];
             }
-            root.children.push_back({TokenType::COMMENT, comment, lineno, {}});
+            root.children.push_back({TokenType::COMMENT, comment+"\n", lineno, {}});
             continue;
         }
 
@@ -300,6 +301,7 @@ auto justconnectidentifier = [&](size_t& idx) -> Token {
                  ||root.children.back().type==TokenType::funcIDENTIFIER||root.children.back().type==TokenType::funcKEYWORD
                 ||root.children.back().type==TokenType::NAMESPACELIKE||root.children.back().type==TokenType::STRUCTLIKE) ){ 
                 if (!inner.empty()) {  //變成關鍵字子節點
+                
                std::istringstream ss(inner);Token iner=tokenizeFile(ss,inner_lineno);
                for(auto& child : iner.children){  node.children.push_back(child); // 不再使用 reinterpret_cast
                 if(startChar=='['&&root.children.back().type==TokenType::funcKEYWORD){
@@ -308,8 +310,13 @@ auto justconnectidentifier = [&](size_t& idx) -> Token {
                 }
                          }
                   node.children.push_back({TokenType::END, std::string(1, endChar), lineno, {}});
+              if(!root.children.empty() && !root.children.back().children.empty()&& custom_command.find(root.children.back().children.back().value)!=custom_command.end()){
+            
+                if(!root.children.back().children.back().children.empty()){ root.children.back().children.push_back(node); continue;}
+                else  {root.children.back().children.back().children.push_back(node);continue;}
+              }else{
                    // 把 BEGIN 作為前一個 KEYWORD 的 child
-                 root.children.back().children.push_back(node);
+                 root.children.back().children.push_back(node);}  
 }else if(startChar =='['&&!root.children.empty() && root.children.back().type == TokenType::IDENTIFIER){
  if (!inner.empty()){ //把[]變成變數值(和原來變數合併)
     root.children.back().value += std::string(1,startChar)+inner+std::string(1, endChar);
@@ -492,9 +499,10 @@ if (matched) continue;
                     }else{
                         
                          if(root.children.back().value=="namespace"){what_is_namespace_like.insert(v.value); if(v.type != TokenType::TYPE) v.type = TokenType::NAMESPACELIKE;}
-                    else  if(root.children.back().value=="struct"){what_is_struct_like.insert(v.value); typeKeywords.insert(v.value); if(v.type != TokenType::TYPE) v.type = TokenType::STRUCTLIKE;}
+                       if(root.children.back().value=="struct"){what_is_struct_like.insert(v.value); typeKeywords.insert(v.value); if(v.type != TokenType::TYPE) v.type = TokenType::STRUCTLIKE;}
+                       if(root.children.back().value=="@custom"){custom_command.insert(v.value);what_is_funcname.insert(v.value);  v.type = TokenType::funcIDENTIFIER;}
+                       
                     }
-                     
                    
                       if(!root.children.back().children.empty()&&!root.children.back().children.back().children.empty() 
                       && (root.children.back().children.back().children.back().value== "}"||root.children.back().children.back().children.back().value=="]")&&v.type != TokenType::TYPE) {v.type = TokenType::IDENTIFIER; root.children.push_back(v);continue;} 
@@ -513,13 +521,19 @@ if (matched) continue;
                 ) v.type = TokenType::STRUCTLIKE;
                 if(!root.children.empty()&& root.children.back().type == TokenType::TYPE&&what_is_struct_like.find(root.children.back().value) != what_is_struct_like.end()) {
                         what_is_struct_like.insert(v.value);v.type=TokenType::STRUCTLIKE;root.children.push_back(v);continue;}
+                if(!root.children.empty()&&custom_command.find(v.value)!=custom_command.end()&&root.children.back().type!=TokenType::SEPARATOR
+            &&root.children.back().value!="var"){
+                    v.type = TokenType::funcIDENTIFIER;
+                    root.children.back().children.push_back(v);continue;
+                }
 
                     if(whole.value==v.value){root.children.push_back(v);} //沒有a.b.c只有一層
                     else{Token* cur = &node;//指向node地址
                         if(depth==1){node=v;cur=&node;}
                     if(depth>1){
                         while(!cur->children.empty()){cur = &cur->children.back();} //指向還沒有子節點的a.b.c的最後面一個節點
-                        v.value="."+v.value; cur->children.push_back(v);//把a.b.c逐漸從a變a.b變a.b.c
+                        if(custom_command.find(v.value)!=custom_command.end()){ v.value="."+v.value;cur->value+=v.value;cur->type=TokenType::funcIDENTIFIER;}
+                        else{v.value="."+v.value; cur->children.push_back(v);}//把a.b.c逐漸從a變a.b變a.b.c
                     }
                     
                           }
@@ -542,12 +556,12 @@ if (matched) continue;
 // runTokenFunc 對應原 funcfile while，執行 token handler
  
 std::string sumLeftparen(const Token& node) {
-    std::string result=node.value;
+    std::string rt=node.value,result;
     
- 
-    for(auto& p:node.children){result+=sumLeftparen(p);}    
+    
+    for(auto& p:node.children){rt+=sumLeftparen(p);}    
    
-    return result;
+    return rt;
 }
 
 std::string AdotBdotC(const Token& node,std::string spepar="") {
@@ -598,9 +612,34 @@ Token mergetoken(const Token& node, const std::string& afterSeper) {
       if(node.type == TokenType::INJECT){result.type = TokenType::INJECT; return node;}
       if(node.value=="<{"||node.value=="}>" ){return result;}
       if(node.value=="{"){result.value+=sumLeftbrackets(node);return result;}
-      if(node.type==TokenType::funcIDENTIFIER){
-                result.value=node.value+"("; 
-                for(auto& p:node.children[0].children){result.value+=singletoken(p,",").value;}
+      if(node.type==TokenType::funcIDENTIFIER&&!node.children.empty()){
+
+         auto cusit =custom_command_arg.find(node.value);
+        if(cusit!=custom_command_arg.end()){  
+            std::vector<Token> templa=cusit->second;std::vector<size_t> args;Token out;bool hasback=false;std::string tmp;
+            for(size_t pos=0;pos<templa.size();pos++){if(templa[pos].type==TokenType::INJECT)args.push_back(pos);}
+            for(size_t i=0,j=0;i<node.children[0].children.size();i++){ Token cur=node.children[0].children[i];cur.value=singletoken(cur,",").value;
+                if(cur.value!="<{"&&cur.value!="}>"){
+                    if(cur.value==","||cur.value==")"){j++;tmp="";continue;}else{tmp+=" "+cur.value;}
+                    if(j>=args.size()){j=0;hasback=true; }
+                     if(cur.value=="{"){ for(auto& inside:cur.children)cur.value+=singletoken(inside,";").value;}
+                   if(!hasback){templa[args[j]].value=tmp;} else{templa[args[j]].value+=tmp;}
+                   
+                }
+            }
+           for(auto& p:templa){out.value+=p.value;}
+           out.type=TokenType::INJECT;
+         return out;
+        }
+                 bool iftemplate=false;  for(auto& child:node.children){  if(child.value!="(")iftemplate=true;}
+             if(!iftemplate)result.value=node.value+"(" ;else  result.value=node.value; 
+                for(auto& child:node.children){
+                    if(child.value!="("){result.value+=singletoken(child,",").value+"(";continue;}
+                    for(auto& p:child.children){
+                    if(p.value=="("){result.value+=sumLeftparen(p);continue;}
+                    result.value+=singletoken(p,",").value;
+                }
+                }
                 return result;
             }
        if(node.type == TokenType::TYPE){
@@ -620,7 +659,7 @@ Token mergetoken(const Token& node, const std::string& afterSeper) {
             k.value=it->second(node);
         }return k; }
     if(node.type == TokenType::funcKEYWORD& !node.children.empty()&&!boolkey){ auto it = funcHandlers.find(node.value);Token k;k.type=TokenType::UNKNOWN;if (it != funcHandlers.end()){
-            k.value=it->second(node);
+           k.value=it->second(node);
         }return k; }
     if (node.type == TokenType::SEPARATOR) {Token aftp;aftp.type=TokenType::SEPARATOR;result.type = TokenType::SEPARATOR;aftp.value=afterSeper; return  aftp;}
     return node; }
@@ -635,11 +674,39 @@ if(node.type !=TokenType::ROOT) return node;
 
     return result; }
 
+ 
+    
 std::string runTokenFunc(const Token& node) {
       std::string result;
-         auto it = funcHandlers.find(node.value);
+         auto it = funcHandlers.find(node.value); 
     if (it != funcHandlers.end()) {
         return it->second(node);  // 傳入整個 KEYWORD 節點
+    }
+
+    auto itk = tokenHandlers.find(node.value);
+    if (itk != tokenHandlers.end()) {
+        return "";  // 傳入整個 KEYWORD 節點
+    }
+ 
+
+     auto cusit =custom_command_arg.find(node.value); 
+     if(node.type==TokenType::funcIDENTIFIER&&!node.children.empty()){
+        if(cusit!=custom_command_arg.end()){  
+            std::vector<Token> templa=cusit->second; 
+            std::vector<size_t> args;std::string out,tmp;bool hasback=false;
+            for(size_t pos=0;pos<templa.size();pos++){if(templa[pos].type==TokenType::INJECT)args.push_back(pos);}
+            for(size_t i=0,j=0;i<node.children[0].children.size();i++){ Token cur=node.children[0].children[i];cur.value=singletoken(cur,",").value;
+                if(cur.value!="<{"&&cur.value!="}>"){
+                    if(cur.value==","||cur.value==")"){j++;tmp="";continue;}else{tmp+=" "+cur.value;}
+                    if(j>=args.size()){j=0;hasback=true; }
+                     if(cur.value=="{"){ for(auto& inside:cur.children)cur.value+=singletoken(inside,";").value;}
+                   if(!hasback){templa[args[j]].value=tmp;} else{templa[args[j]].value+=tmp;}
+                   
+                }
+            }
+           for(auto& p:templa){out+=p.value;}
+         return out;
+        }else{return "";}
     }
 
 
@@ -666,10 +733,24 @@ std::string runToken(const Token& node) {
     }
 
     if(node.type==TokenType::funcIDENTIFIER&&!node.children.empty()){
-                result=node.value+"("; 
-                for(auto& p:node.children[0].children){if(p.value=="("){result+=sumLeftparen(p);continue;}
+       
+     
+        auto cusit =custom_command_arg.find(node.value);
+
+        if( cusit!=custom_command_arg.end()){  
+    
+         return "";
+        }
+               bool iftemplate=false; for(auto& child:node.children){  if(child.value!="(")iftemplate=true;}
+             if(!iftemplate)result=node.value+"(" ;else  result=node.value; 
+                for(auto& child:node.children){
+                    if(child.value!="("){result+=singletoken(child,",").value+"(";continue;}
+                    for(auto& p:child.children){
+                    if(p.value=="("){result+=sumLeftparen(p);continue;}
                     result+=singletoken(p,",").value;
                 }
+                }
+                
                 return result+";";
             }
 
@@ -689,6 +770,7 @@ std::string runToken(const Token& node) {
 
 
     // 遞迴子 token
+       
     for (const auto& child : node.children) {
         result += runToken(child);
     }
@@ -856,10 +938,11 @@ void registfunckeyword(){
      });
       registerfunc("namespace",[](const Token& node){
          std::string result,namespa; 
-         for(auto& child:node.children){
+         for(auto child:node.children){
             if(child.type==TokenType::NAMESPACELIKE){namespa=child.value;}
             if(child.value=="{"){ result="namespace "+namespa+"{";   
                 for( auto& cont:child.children){
+                    if(cont.value=="@custom"&&!cont.children.empty()){cont.children[0].value=namespa+"."+cont.children[0].value;}
                       result+=singletoken(cont,";").value;
                 } }
          }
@@ -872,9 +955,18 @@ void registfunckeyword(){
             if(child.value=="{"){ result="struct "+struc+"{";   
                 for( auto& cont:child.children){
                       result+=singletoken(cont,";").value;
-                } }
+                } result+=";"; }
          }
-        return result+";\n";
+        return result+"\n";
+     });
+     registerfunc("@custom",[](const Token& node){
+        std::vector<Token> args;
+         for(auto child:node.children[0].children[0].children){
+            if(child.type==TokenType::INJECT) {args.push_back(child); }
+            if(child.type==TokenType::STRING){child.value=child.value.substr(1,child.value.size()-2);args.push_back(child); }
+         }
+         if(!args.empty()) custom_command_arg[node.children[0].value]=args;
+        return "";
      });
     registerfunc("export",[](const Token& node){
          
@@ -1113,7 +1205,7 @@ int main(int argc, char* argv[]) {
                 if(child.type==TokenType::IDENTIFIER){
                     if(optrar=="") n.push_back(child.value);else c.push_back(child);
                 }
-                if(child.type==TokenType::NAMESPACELIKE){
+                if(child.type==TokenType::NAMESPACELIKE||child.type==TokenType::STRUCTLIKE){
                     if(optrar=="") {n.push_back(AdotBdotC(child));}else{Token dotchain={TokenType::IDENTIFIER,AdotBdotC(child),child.line_number,{}};c.push_back(dotchain);}
                 } 
                 else if(child.type==TokenType::STRING||child.type==TokenType::NUMBER||child.type==TokenType::CHAR||child.type==TokenType::INJECT){
@@ -1169,7 +1261,7 @@ int main(int argc, char* argv[]) {
 
   registerToken("print", [](const Token& node) {
     std::string args,cur,prenum; Token curtoken;args="";bool opt=false; 
-    std::string ifio=(Ifiostream)?";\n":");\n";
+    std::string ifio=(Ifiostream)?";\n":");\n";int i=0;
     const auto& root= node.children[0].children;//切換到'('或'{'後面的節點
      for (const auto& child : root) {
             curtoken= singletoken(child,""); cur=curtoken.value;
@@ -1190,11 +1282,12 @@ int main(int argc, char* argv[]) {
                          args+=(Ifiostream)?"std::cout<<"+varinside:"printf("+varinside;
                     }
             if(child.type==TokenType::funcIDENTIFIER){
+                if(i==0)args="";
                 args+="std::cout<<"+cur;    
             }
                 
                
-    }
+    i++;}
     return args+ifio;
 });
 registerToken("input",[](const Token& node){
