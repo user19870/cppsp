@@ -31,7 +31,7 @@ lib.ini:C:\...\lib1,c:\...\lib2
 ## Feature
 * can compile when there is only print("hello world") in .cppsp
 * can use almost c++ header by import
-* custom pattern-driven, nested, namespace-scoped templates 
+* user-custom syntaxs by pattern-driven, nested, namespace-scoped templates 
 * can use c++ code  by @inject and @function
 * enable indentation and multi-line after v1.3
 * declare multi variables with `var`.....`type`
