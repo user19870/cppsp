@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <unordered_map>
 #include <unordered_set>
+#include <map>
 #include <functional>
 bool isWindows=false;bool isMac=false;bool isLinux =false;
  #if defined(_WIN32) || defined(_WIN64) 
@@ -129,6 +130,7 @@ Token tokenizeFile(std::istream& funcfile,size_t lineno = 1) {
                 break;
             }
         }
+         
     };
 
     auto parseIdentifierOrKeyword = [&](size_t& idx) -> Token {
@@ -193,10 +195,10 @@ auto justconnectidentifier = [&](size_t& idx) -> Token {
         if (i >= src.size()) break;
 
         //單行判斷的關鍵字類似import a,b,c...
-        std::vector<std::string> regkw={"import","module"};
+        std::vector<std::string> regkw={"import","from ","use","package"};
         for(auto regk:regkw){
             if ( i + 1 < src.size()&&src.compare(i,regk.size(),regk)==0) {
-            std::string Inimport;Token node{TokenType::KEYWORD, regk, lineno, {}}; 
+            std::string Inimport;Token node{TokenType::funcKEYWORD, regk, lineno, {}}; 
             i+=regk.size();
             while (i < src.size() && src[i] != '\n') {
                 Inimport += src[i++];
@@ -409,6 +411,11 @@ else   {
     continue;
 }
 //var   變數系統
+auto var_nodes = [](const Token& node){
+Token result =node;
+while(!result.children.empty()) result=result.children.back();
+return result;
+};
        int var_inner_lineno = lineno;
        if (src[i] == 'v' && src[i+1] == 'a' && src[i+2] == 'r' ) {
              
@@ -416,14 +423,22 @@ else   {
             i += 3;bool varend=true;
   
             std::string inner;
-            while (i < src.size()&&varend) {
+            while (i < src.size()&&varend) {if(!src[i+1]){inner+=src[i];}
                  std::istringstream ss(inner);
-                    if (src[i] == '\n'){invar=tokenizeFile(ss,var_inner_lineno);
+                    if (src[i] == '\n'||!src[i+1]){invar=tokenizeFile(ss,var_inner_lineno);
+                         
                         for(auto& child : invar.children){
                    if( child.type != TokenType::TYPE) node.children.push_back(child);
                                         }
                     if(invar.children.back().type==TokenType::TYPE){varend=false;
                     node.children.push_back(invar.children.back());} 
+                    if(invar.children.back().type==TokenType::NAMESPACELIKE&&!invar.children.back().children.empty()){std::string scopedtype=var_nodes(invar.children.back()).value.substr(1,invar.children.back().children.back().value.size()-1);
+                        if( typeKeywords.find(scopedtype)!=typeKeywords.end()){varend=false;
+                            for(auto& child : node.children){if(child.type==TokenType::IDENTIFIER)child.type=TokenType::STRUCTLIKE;
+                                what_is_struct_like.insert(child.value);}
+                   }
+                    }
+                  
                       else {inner="";}
                       lineno++;
                 }
@@ -487,7 +502,7 @@ if (matched) continue;
                 while(getline(ss,nod,'.')){ depth++;
                     
 
-                Token v=parseIdentifierOrKeyword(i);std::string end;bool hasfuncname=false;
+                Token v=parseIdentifierOrKeyword(i);std::string end;bool hasfuncname=false; 
                 if(!root.children.empty() &&root.children.back().type == TokenType::funcKEYWORD
             && v.type != TokenType::KEYWORD && v.type != TokenType::funcKEYWORD ){
                 
@@ -521,6 +536,8 @@ if (matched) continue;
                 ) v.type = TokenType::STRUCTLIKE;
                 if(!root.children.empty()&& root.children.back().type == TokenType::TYPE&&what_is_struct_like.find(root.children.back().value) != what_is_struct_like.end()) {
                         what_is_struct_like.insert(v.value);v.type=TokenType::STRUCTLIKE;root.children.push_back(v);continue;}
+                if(!root.children.empty()&& root.children.back().type == TokenType::NAMESPACELIKE&&v.value.find(".")==std::string::npos) {
+                       what_is_struct_like.insert(v.value);v.type=TokenType::NAMESPACELIKE;root.children.push_back(v);continue;}
                 if(!root.children.empty()&&custom_command.find(v.value)!=custom_command.end()&&root.children.back().type!=TokenType::SEPARATOR
             &&root.children.back().value!="var"){
                     v.type = TokenType::funcIDENTIFIER;
@@ -532,7 +549,7 @@ if (matched) continue;
                         if(depth==1){node=v;cur=&node;}
                     if(depth>1){
                         while(!cur->children.empty()){cur = &cur->children.back();} //指向還沒有子節點的a.b.c的最後面一個節點
-                        if(custom_command.find(v.value)!=custom_command.end()){ v.value="."+v.value;cur->value+=v.value;cur->type=TokenType::funcIDENTIFIER;}
+                        if(custom_command.find(v.value)!=custom_command.end()){  ;node.value=whole.value;node.type=TokenType::funcIDENTIFIER;node.children={};}
                         else{v.value="."+v.value; cur->children.push_back(v);}//把a.b.c逐漸從a變a.b變a.b.c
                     }
                     
@@ -547,6 +564,7 @@ if (matched) continue;
         i++; // 防止死循環
     }
 
+   
     return root;
 }
 
@@ -554,7 +572,7 @@ if (matched) continue;
 
 // ====== token 執行接口 ======
 // runTokenFunc 對應原 funcfile while，執行 token handler
- 
+  Token singletoken(const Token& node, const std::string& afterSeper);
 std::string sumLeftparen(const Token& node) {
     std::string rt=node.value,result;
     
@@ -578,8 +596,38 @@ std::string AdotBdotC(const Token& node,std::string spepar="") {
 }
 
 std::string sumLeftbrackets(const Token& node) {
-    std::string result=node.value;
+    std::string result=node.value; 
     if(node.type==TokenType::NAMESPACELIKE||node.type==TokenType::STRUCTLIKE){result= AdotBdotC(node);return result;}
+     if(node.type == TokenType::KEYWORD&& !node.children.empty()){ auto it = tokenHandlers.find(node.value);Token k;k.type=TokenType::UNKNOWN;if (it != tokenHandlers.end()){
+            k.value=it->second(node);
+        }return k.value; }
+    if(node.type == TokenType::funcKEYWORD& !node.children.empty()){ auto it = funcHandlers.find(node.value);Token k;k.type=TokenType::UNKNOWN;if (it != funcHandlers.end()){
+           k.value=it->second(node);
+        }return k.value; }
+
+if(node.type==TokenType::funcIDENTIFIER&&!node.children.empty()){
+
+         auto cusit =custom_command_arg.find(node.value);
+        if(cusit!=custom_command_arg.end()){  
+            std::vector<Token> templa=cusit->second;std::vector<size_t> args;Token out;bool hasback=false;std::string tmp;
+            for(size_t pos=0;pos<templa.size();pos++){if(templa[pos].type==TokenType::INJECT)args.push_back(pos);}
+            for(size_t i=0,j=0;i<node.children[0].children.size();i++){ Token cur=node.children[0].children[i];cur.value=singletoken(cur,",").value;
+                if(cur.value!="<{"&&cur.value!="}>"){
+                     if(cur.value=="{"){ for(auto& inside:cur.children)cur.value+=singletoken(inside,";").value;}
+                    if(cur.value==","||cur.value==")"){j++;tmp="";continue;}else{tmp+=" "+cur.value;}
+                    if(j>=args.size()){j=0;hasback=true; }
+                     
+                   if(!hasback){templa[args[j]].value=tmp;} else{templa[args[j]].value+=tmp;}
+                   
+                }
+            }
+           for(auto& p:templa){out.value+=p.value;}
+           out.type=TokenType::INJECT;
+         return out.value;
+        }
+                 
+            }
+        
     for(auto& p:node.children){
          
          result+=sumLeftbrackets(p);}    
@@ -620,9 +668,10 @@ Token mergetoken(const Token& node, const std::string& afterSeper) {
             for(size_t pos=0;pos<templa.size();pos++){if(templa[pos].type==TokenType::INJECT)args.push_back(pos);}
             for(size_t i=0,j=0;i<node.children[0].children.size();i++){ Token cur=node.children[0].children[i];cur.value=singletoken(cur,",").value;
                 if(cur.value!="<{"&&cur.value!="}>"){
+                     if(cur.value=="{"){ for(auto& inside:cur.children)cur.value+=singletoken(inside,";").value;}
                     if(cur.value==","||cur.value==")"){j++;tmp="";continue;}else{tmp+=" "+cur.value;}
                     if(j>=args.size()){j=0;hasback=true; }
-                     if(cur.value=="{"){ for(auto& inside:cur.children)cur.value+=singletoken(inside,";").value;}
+                     
                    if(!hasback){templa[args[j]].value=tmp;} else{templa[args[j]].value+=tmp;}
                    
                 }
@@ -655,10 +704,10 @@ Token mergetoken(const Token& node, const std::string& afterSeper) {
            tfbool.value=node.value;  return tfbool;}else{
         result.type = TokenType::IDENTIFIER; return node;}  }
     if(node.type==TokenType::NAMESPACELIKE||node.type==TokenType::STRUCTLIKE){Token n=node;n.value=AdotBdotC(node);return n;}
-    if(node.type == TokenType::KEYWORD&& !node.children.empty()&&!boolkey){ auto it = tokenHandlers.find(node.value);Token k;k.type=TokenType::UNKNOWN;if (it != tokenHandlers.end()){
+    if(node.type == TokenType::KEYWORD ){ auto it = tokenHandlers.find(node.value);Token k;k.type=TokenType::UNKNOWN;if (it != tokenHandlers.end()){
             k.value=it->second(node);
         }return k; }
-    if(node.type == TokenType::funcKEYWORD& !node.children.empty()&&!boolkey){ auto it = funcHandlers.find(node.value);Token k;k.type=TokenType::UNKNOWN;if (it != funcHandlers.end()){
+    if(node.type == TokenType::funcKEYWORD ){ auto it = funcHandlers.find(node.value);Token k;k.type=TokenType::UNKNOWN;if (it != funcHandlers.end()){
            k.value=it->second(node);
         }return k; }
     if (node.type == TokenType::SEPARATOR) {Token aftp;aftp.type=TokenType::SEPARATOR;result.type = TokenType::SEPARATOR;aftp.value=afterSeper; return  aftp;}
@@ -801,7 +850,15 @@ void printToken(const Token& node, int indent=0) {
         printToken(child, indent+1);
     } 
   }  
+  std::unordered_map<std::string, std::string> namespace_parent;
  
+std::string namespace_tree(std::string name){
+std::string result;
+            if(namespace_parent.find(name)!=namespace_parent.end()) {result+= namespace_tree(namespace_parent[name])+"."+name;}
+            else result+=name;
+return result;
+}
+  
 void registcondition(){
        registerToken("if", [](const Token& node) {
         std::string argcond,argcont,cur,cr,ed;
@@ -938,12 +995,19 @@ void registfunckeyword(){
      });
       registerfunc("namespace",[](const Token& node){
          std::string result,namespa; 
+        
          for(auto child:node.children){
             if(child.type==TokenType::NAMESPACELIKE){namespa=child.value;}
             if(child.value=="{"){ result="namespace "+namespa+"{";   
                 for( auto& cont:child.children){
-                    if(cont.value=="@custom"&&!cont.children.empty()){cont.children[0].value=namespa+"."+cont.children[0].value;}
+                    if(cont.value=="namespace"&&!cont.children.empty()){namespace_parent[cont.children[0].value]=namespa;}
+
+                    if(cont.value=="@custom"&&!cont.children.empty()){ 
+                        cont.children[0].value=namespace_tree(namespa)+"."+cont.children[0].value;}
+                        //多namespace定義@custom
+                    if(custom_command_arg.find(namespace_tree(namespa)+"."+cont.value)!=custom_command_arg.end()) {cont.value=namespace_tree(namespa)+"."+cont.value;}
                       result+=singletoken(cont,";").value;
+                      //多namespace呼叫@custom生成的api
                 } }
          }
         return result+"\n";
@@ -951,7 +1015,7 @@ void registfunckeyword(){
       registerfunc("struct",[](const Token& node){
         std::string result,struc; 
          for(auto& child:node.children){
-            if(child.type==TokenType::STRUCTLIKE){struc=child.value;}
+            if(child.type==TokenType::STRUCTLIKE||child.type==TokenType::TYPE){struc=child.value;}
             if(child.value=="{"){ result="struct "+struc+"{";   
                 for( auto& cont:child.children){
                       result+=singletoken(cont,";").value;
@@ -968,10 +1032,32 @@ void registfunckeyword(){
          if(!args.empty()) custom_command_arg[node.children[0].value]=args;
         return "";
      });
-    registerfunc("export",[](const Token& node){
-         
-        return "";
+     registerfunc("use",[](const Token& node){
+         std::string result,scope,useas[3],usecustom;
+          auto trim = [](std::string s) {
+        while (!s.empty() && (s.front() == ' ' || s.front() == '\t')) s.erase(s.begin());
+        while (!s.empty() && (s.back() == ' ' || s.back() == '\t')) s.pop_back();
+        return s;
+    };
+         for(auto& child:node.children){
+            std::stringstream ss(child.value);
+            while (getline(ss, scope, ',')){scope=trim(scope); 
+              for(auto& [k,v]:custom_command_arg){  
+                if(k.compare(0,scope.size()+1,scope+".")==0) {
+                    custom_command_arg[k.substr(scope.size()+1)]=v;}
+              }
+                for(size_t i=0;i<scope.size();i++){
+                    if(scope[i]=='.'){scope[i]=':';scope.insert(i+1,":");}
+                }
+                result+="using namespace "+scope+";\n";
+    
+                }
+            }
+        return result;
      });
+    
+ 
+     registerfunc("package",[](const Token& node){  return "";});
 }
 // ======token區域=======
 //註解
@@ -1149,27 +1235,6 @@ std::string parseIni(const std::string& path, const std::string& flag) {
     }
     return result;
 }
-
-std::string moduleIni(const std::string& path) {
-    std::ifstream infile(path);
-    if (!infile) return "";
-
-    std::string line; 
-    std::string result;
-    while(std::getline(infile, line)){
-    std::stringstream ss(line);
-    std::string token;
-    while (std::getline(ss, token, ',')) {
-        if (!token.empty()) {
-            if(ss.peek()==EOF) result += token;
-            else result +=   token+",";
-             
-        }
-    }
-    
-    }
-    return result;
-}
 // 判斷字串是否為布林值
 auto is_bool = [](const std::string& s){
     return s == "true" || s == "false";
@@ -1185,7 +1250,133 @@ auto is_number = [](const std::string& s){
         while (!s.empty() && (s.back() == ' ' || s.back() == '\t')) s.pop_back();
         return s;
     };
+
+std::unordered_set<std::string> cppsp_module;//紀錄已載入的模組，避免重複載入
+std::vector<std::string> mod_import_line,originLoadOrder;//儲存模組中原始import a,b,c
+
+  std::unordered_map<std::string, std::vector<std::string>> depGraph;//紀錄模組依賴關係圖
+             std::unordered_set<std::string> graphBuilt;//紀錄已經紀錄依賴的模組，避免重複構建
+            
+             std::unordered_map<std::string,int> visitState;//拓樸排序訪問狀態，0=未訪問，1=訪問中，2=已訪問 
+
+             std::vector<std::string> loadOrder;//存儲最終的載入順序
+             std::unordered_map<std::string,fs::path> modpath_cache;//模組路徑快取，避免重複尋找同一模組
+ 
+             
+     fs::path pathByimport(const std::string& mod,const fs::path basedir){
+        std::string path = mod;
+ for(size_t j=0;j<path.size();j++)if(path[j]=='.')path[j]=(isWindows)?'\\':'/';
+return fs::path(basedir) /(path+".cppsp");
+     }
+
+ void buildGraph(const fs::path& modpath,const std::string& topmodname,const fs::path& pathInini){
+     
+     if(graphBuilt.count(topmodname)) return; // 已經構建過了
+     if(!fs::exists(modpath)){ 
+        return;}  
+    
+ 
+
+        graphBuilt.insert(topmodname); depGraph[topmodname]={};visitState[topmodname]=0;
+        cppsp_module.insert(topmodname);//std::cerr<<"suceessfully loaded "<<topmodname<<'\n';
+            std::ifstream modfile(modpath); Token modtoken =tokenizeFile(modfile,1); 
+            if(!modfile){ std::cerr<<"Error: Failed to open module file "<<modpath<<"\n"; return;}
+            modpath_cache[topmodname]=modpath;
+         
+            for(auto& child:modtoken.children){
+                if(child.value=="import"&&!child.children.empty()){std::string modname;std::stringstream ss(trim(child.children[0].value));
+                    while(std::getline(ss,modname,',')){modname=trim(modname);
+                      fs::path deepermodpath=pathByimport(modname,pathInini);
+                       if(fs::exists(deepermodpath)){ depGraph[topmodname].push_back(modname);
+                        buildGraph(deepermodpath,modname,pathInini); }
+                       else{ return;}
+                    }
+                }
+              }  
+ 
+    
+    }  
+    bool topoDFS(const std::string& mod){
+ 
+        switch(visitState[mod]){
+     case 0:
+         visitState[mod]=1;
+         for(auto& dep:depGraph[mod]){
+           if(!topoDFS(dep)) return false;
+         }
+         loadOrder.push_back(mod);
+         visitState[mod]=2;return true;
+     case 1:
+        std::cerr<<"Error:"<<mod<<"has circular dependency\n";
+        return false;
+     case 2:
+         return true;
+        }
+ return true;
+    }
+ 
+    //處理模組
+std::string moduleIni(const std::string& path,const Token& maincppsp) {
+  std::ifstream infile(path); 
+    if (!infile) return {};
+ 
+  std::vector<std::string> record_modules;//紀錄
+std::unordered_set<std::string>ready_for_loading_modules,deduplicated;// 紀錄.cppsp檔案模組
+    for(auto& child:maincppsp.children){
+        if(child.value=="import"&&!child.children.empty()) {std::stringstream ss(child.children[0].value);std::string importss;
+            while (std::getline(ss, importss, ',')){ record_modules.push_back(trim(importss));
+    }  }    }
    
+ 
+    std::string line; 
+    std::string result;
+    while(std::getline(infile, line)){
+    std::stringstream ss(line);  std::string pathInini;
+    while (std::getline(ss, pathInini, ',')) {
+        if (!pathInini.empty()) {pathInini=trim(pathInini);
+           
+
+    for(size_t i=0;i<record_modules.size();i++){ 
+            fs::path modpath=pathByimport(record_modules[i],fs::path(pathInini) );
+
+            if(fs::exists(modpath)){if(deduplicated.count(record_modules[i])==0) {originLoadOrder.push_back(record_modules[i]);}
+                deduplicated.insert(record_modules[i]);}
+
+             buildGraph(modpath,record_modules[i],fs::path(pathInini));
+           }
+  
+        }
+    }
+//跑完所有ini中路徑才開始拓樸排序，確保依賴圖完整 
+    }
+    for(auto& mod:originLoadOrder){
+topoDFS(mod);
+    }
+    
+    for(auto& mod:loadOrder){/*std::cerr<<mod<<":{";
+          for(auto& dep:depGraph[mod]){std::cerr<<dep<<",";}std::cerr<<"}\n";   */
+   // std::cerr<<modpath_cache[mod]<<'\n';
+          std::ifstream modfile(modpath_cache[mod]); std::ostringstream readmodcont;readmodcont<<modfile.rdbuf();std::string modspace=mod;
+          std::istringstream modtokenline(readmodcont.str());
+           Token modtoken =tokenizeFile(modtokenline,1);
+          for(auto& child:modtoken.children){if(child.value=="import"&&!child.children.empty())mod_import_line.push_back(child.children[0].value);
+            if(child.value=="package"&&!child.children.empty())modspace=child.children[0].value;
+        }
+          std::string modnamesapce,finaltoken;std::stringstream ss(modspace);
+         finaltoken=readmodcont.str();
+         std::vector<std::string> nameorder;
+          while(std::getline(ss,modnamesapce,'.')){nameorder.push_back(modnamesapce);}
+          for(int i=nameorder.size()-1;i>=0;i--){
+            finaltoken="namespace "+nameorder[i]+"{"+finaltoken+"}\n";
+          }
+          
+           result+=finaltoken;
+   
+    
+    }
+    return result;
+}
+ 
 int main(int argc, char* argv[]) {
     bool enableclang =false;bool skipcompile=false;bool enableoverwrite = false;
   
@@ -1198,14 +1389,17 @@ int main(int argc, char* argv[]) {
      registerToken("#skipcompile", [](const Token& node){return "";}); 
       registerToken("var", [](const Token& node){
              std::string arga,type,optrar,cur,botf;int vat=1;std::vector<std::string> n;std::vector<Token> c;
-             type=node.children.back().value;
-             for (auto& child : node.children){
+             Token nodes=node;
+             type=nodes.children.back().value;
+               if(nodes.children.back().type==TokenType::NAMESPACELIKE) nodes.children.back().type=TokenType::TYPE;
+             for (auto child : nodes.children){
+                
                 if(child.type==TokenType::OPERATOR){optrar=child.value;}
                 if(child.type==TokenType::funcIDENTIFIER){c.push_back(singletoken(child,","));}
                 if(child.type==TokenType::IDENTIFIER){
                     if(optrar=="") n.push_back(child.value);else c.push_back(child);
                 }
-                if(child.type==TokenType::NAMESPACELIKE||child.type==TokenType::STRUCTLIKE){
+                if(child.type==TokenType::NAMESPACELIKE||child.type==TokenType::STRUCTLIKE){ 
                     if(optrar=="") {n.push_back(AdotBdotC(child));}else{Token dotchain={TokenType::IDENTIFIER,AdotBdotC(child),child.line_number,{}};c.push_back(dotchain);}
                 } 
                 else if(child.type==TokenType::STRING||child.type==TokenType::NUMBER||child.type==TokenType::CHAR||child.type==TokenType::INJECT){
@@ -1231,8 +1425,13 @@ int main(int argc, char* argv[]) {
                  else if(type=="float"){arga+="double "+n[i]+op+val+";";}
                  else if(type=="bool"){arga+="bool "+n[i]+op+val+";";}
                  else if(type=="char"){arga+="char "+n[i]+op+val+";";}
-                 else if(what_is_struct_like.find(type)!=what_is_struct_like.end()){n[i].pop_back();n[i].pop_back();
-                     arga+=type+" "+n[i]+op+val+";";}
+                 else if(what_is_struct_like.find(type)!=what_is_struct_like.end()||what_is_namespace_like.find(type)!=what_is_namespace_like.end()){
+                    if(n[i].find("[]")!=std::string::npos){ n[i].pop_back();n[i].pop_back();}
+                     if(node.children.back().type==TokenType::NAMESPACELIKE){
+                         arga+=AdotBdotC(node.children.back())+" "+n[i]+op+val+";";
+                     }else{
+                    arga+=type+" "+n[i]+op+val+";";}
+                     }
  
                 }else{
                     if(n[i].empty())  break;
@@ -1268,7 +1467,7 @@ int main(int argc, char* argv[]) {
              if(curtoken.type==TokenType::NUMBER){ if(!opt){
                   if(stod(curtoken.value)==(int)stod(curtoken.value)){args+=(Ifiostream)?"std::cout<<"+cur:" printf(\"%d\","+cur;}
                   else args+= (Ifiostream)?"std::cout<<"+cur:" printf(\"%g\","+cur;}  else{args+=cur;} }
-             if(curtoken.type==TokenType::SEPARATOR) {args+=ifio;opt=false;}     
+             if(curtoken.type==TokenType::SEPARATOR) {  args+=ifio;opt=false;}     
              if(curtoken.value[0]=='L') {(Ifiostream)?args+="std::wcout<<"+cur :"wprintf("+cur;}else{
                if(curtoken.type==TokenType::STRING||curtoken.type==TokenType::CHAR){ args+=(Ifiostream)?"std::cout<<"+cur:"printf(" + cur;}}
              if(curtoken.type==TokenType::OPERATOR){  args += cur;opt=true;}
@@ -1336,7 +1535,14 @@ registerCommand("@function","<<",">>",  [](const std::string& args) {
         return 1;
     }
 
-    
+    bool gen_header=false;
+    if(argc>2){
+        for(int i=1;i<argc;i++){
+           
+            if(strcmp(argv[i],"-header")==0){  gen_header=true;break;}
+            
+        }
+    }
 
   //預留模組安裝功能
   /*  if(strcmp(argv[1],"install")==0){
@@ -1374,25 +1580,38 @@ registerCommand("@function","<<",">>",  [](const std::string& args) {
     }
 
     fs::path cppPath = cpsPath.parent_path() / (cpsPath.stem().concat(".cpp"));
+    if(gen_header) cppPath = cpsPath.parent_path() / (cpsPath.stem().concat(".h"));
     std::ofstream outfile(cppPath);
     if (!outfile) {
         std::cerr << "Cannot create cpp file.\n";
         return 1;
     }
 
-    std::string modulefolder = moduleIni("module.ini");
-    std::cerr<<modulefolder;
-      
-
-    std::ifstream tokenfile(cpsPath);
+    std::ifstream orgifile(cpsPath);
+    std::ostringstream tokencontent;tokencontent<<orgifile.rdbuf();
+     
+    std::istringstream tokenfile(tokencontent.str());
    Token root = tokenizeFile(tokenfile,1);
+
+   std::string modulefolder = moduleIni("module.ini",root);
+  
+   std::istringstream finalfile(modulefolder+tokencontent.str());
+   root=tokenizeFile(finalfile,1);
+ 
     tokenstream.push_back(root);
 
+  
 
+std::unordered_set<std::string> includedHeaders; // 紀錄已包含的標頭，避免重複
     outfile << "#include <stdio.h>\n";
-    std::string importline; std::ifstream fileinclude(cpsPath);
+    std::string importline; std::ifstream origfile(cpsPath);
+ 
+    std::ostringstream ss;ss<<origfile.rdbuf();std::string finalcont=ss.str();
+    for(auto& val:mod_import_line){finalcont="import "+val+"\n"+finalcont;}
+    std::istringstream fileinclude(finalcont);
+
 while (std::getline(fileinclude, importline)) {
-  bool comment=isComment(importline);std::string_view svimportline(importline);
+  bool comment=isComment(importline);std::string svimportline=importline;
 if (!comment && svimportline.find("import ") != std::string::npos) {
     size_t pos = svimportline.find("import ");
     std::string imports = importline.substr(pos + 7); // "import " 長度 7
@@ -1404,11 +1623,16 @@ if (!comment && svimportline.find("import ") != std::string::npos) {
     std::string header;
     while (std::getline(ss, header, ',')) {
         header = trim(header); // 每個標頭也要去掉空白
-        if (header.empty()) continue;
+        if (header.empty()||includedHeaders.count(header)) continue;
+        includedHeaders.insert(header); // 紀錄已包含的標頭
+         
 
         fs::path importFile = cpsPath.parent_path() / header;
         std::string import= importFile.lexically_relative(cpsPath.parent_path()).string();
     
+      
+         if(cppsp_module.count(header))continue;
+
         if(header[0]=='\"'&&header[header.length()-1]=='\"') import=import;
         else if(header[0]=='<'&&header[header.length()-1]=='>') import=import;
         else import="\""+import+"\"";
@@ -1440,13 +1664,15 @@ if (!comment && svimportline.find("import ") != std::string::npos) {
     }
 
 
-     for(auto& p:tokenstream) {std::string tokcode=runTokenFunc(p);outfile << tokcode;}
-    /*
+     for(int i=0;i<tokenstream.size();i++) {std::string tokcode=runTokenFunc(tokenstream[i]); 
+        outfile << tokcode;}
+    
+     /*
     for(auto& p:tokenstream){
        printToken(p);
     }*/
 
-    if(enableoverwrite) outfile << "/*";
+    if(enableoverwrite||gen_header) outfile << "/*";
         outfile << "int main() {\n";
 
 
@@ -1476,7 +1702,7 @@ if (!comment && svimportline.find("import ") != std::string::npos) {
     
 
     outfile << "\nreturn 0;\n}\n";
-     if(enableoverwrite) outfile << "*/";
+     if(enableoverwrite||gen_header) outfile << "*/";
     outfile.close();
 std::string local=(isMac || isLinux)? "./":"";
     fs::path exePath = cpsPath.parent_path() / (local+cpsPath.stem().string() );// .exe後綴 : + ".exe");
@@ -1484,17 +1710,18 @@ std::string local=(isMac || isLinux)? "./":"";
     // 讀 include.ini 和 lib.ini
     std::string includeFlags = parseIni("include.ini", "-I");
     std::string libFlags = parseIni("lib.ini", "-L");
+    
 
-    std::string gppCommand = "g++ \"" + cppPath.string() + "\" -o \"" + exePath.string() + "\" "
+    std::string gppCommand = "g++ \"" + cppPath.string() + "\"" + " -o \"" + exePath.string() + "\" "
                              + extraFlags + " "
                              + includeFlags + " "
                              + libFlags;
-    if(enableclang) gppCommand = "clang++ \"" + cppPath.string() + "\" -o \"" + exePath.string() + "\" "
+    if(enableclang) gppCommand = "clang++ \"" + cppPath.string() + "\"" + " -o \"" + exePath.string() + "\" "
                              + extraFlags + " "
                              + includeFlags + " "
                              + libFlags;
     if(enableoverwrite) gppCommand = extraFlags + " " + includeFlags + " "  + libFlags;
-     if( skipcompile){
+     if( skipcompile||gen_header){
         gppCommand="";
      }else{
             std::cout << "Compiling: " << gppCommand << "\n";
@@ -1508,6 +1735,6 @@ std::string local=(isMac || isLinux)? "./":"";
 } 
    if(!enableoverwrite) std::cout << "Compilation succeeded! Executable: " << exePath.string() << "\n";
    if(enableoverwrite) std::cout << "Compilation succeeded!\n";
-     if(!enableoverwrite) int runexe= system(exePath.string().c_str());
+     if(!enableoverwrite&&!gen_header) int runexe= system(exePath.string().c_str());
     return 0;
 }
