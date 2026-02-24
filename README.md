@@ -29,7 +29,7 @@ Download the cppsp_compiler.exe or compiler the sourcecode by yourself
 * Setting c++ include/lib/cppsp_mod folder by .ini file
 include.ini:C:\...\include1,c:\...\include2
 lib.ini:C:\...\lib1,c:\...\lib2
-module.ini:C:\...\modfolder1,c:\...\modfolder1
+module.ini:C:\...\modfolder1,c:\...\modfolder2
 ## Feature
 * can compile when there is only print("hello world") in .cppsp
 * can use almost c++ header by import
