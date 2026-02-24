@@ -27,9 +27,11 @@ Download the cppsp_compiler.exe or compiler the sourcecode by yourself
 `cppsp_compiler(if not in environment path:.\cppsp_compiler.exe or c:\...\cppsp_compiler.exe) script.cppsp`
 * **`cppsp_compiler mod.cppsp -header`** will generate .h file and turn int main(){...} a comment
 * Setting c++ include/lib/cppsp_mod folder by .ini file
+```
 include.ini:C:\...\include1,c:\...\include2
 lib.ini:C:\...\lib1,c:\...\lib2
 module.ini:C:\...\modfolder1,c:\...\modfolder2
+```
 ## Feature
 * can compile when there is only print("hello world") in .cppsp
 * can use almost c++ header by import
