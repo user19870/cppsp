@@ -36,7 +36,7 @@ module.ini:C:\...\modfolder1,c:\...\modfolder2
 * can compile when there is only print("hello world") in .cppsp
 * can use almost c++ header by import
 - can use .cppsp mod by import
-  -deepermod.cppsp still can use c++ header and .cppsp mod by import 
+  - deepermod.cppsp still can use c++ header and .cppsp mod by import 
 * user-custom syntaxs by pattern-driven, nested, namespace-scoped templates 
 * can use c++ code  by @inject and @function
 * enable indentation and multi-line after v1.3
