@@ -1819,7 +1819,7 @@ std::string local=(isMac || isLinux)? "./":"";
         #if defined(_WIN32) || defined(_WIN64) 
                runexe=_wsystem(to_wide("\""+exePath.string()+"\"").c_str());
               #else
-              std::string tmp="\""+exePath.string().c_str()+"\"";
+              std::string tmp="\""+exePath.string()+"\"";
               runexe= system(tmp.c_str());
              #endif
         }
