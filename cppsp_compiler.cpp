@@ -1447,6 +1447,21 @@ std::string parse_utf8(const std::string &s) {
 std::wstring to_wide(const std::string& utf8_str) {
     return std::filesystem::path(utf8_str).wstring();
 }
+#if defined(_WIN32) || defined(_WIN64)
+
+#include <windows.h>
+    std::string getargv_path(const std::string& arv){
+int argc;
+    LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    std::string result=std::filesystem::path(argv[1]).u8string();
+    LocalFree(argv); 
+    return result;
+    }
+    #else 
+    std::string getargv_path(const std::string& arv){
+ return arv;
+    }
+#endif
  
 int main(int argc, char* argv[]) {
     bool enableclang =false;bool skipcompile=false;bool enableoverwrite = false;
@@ -1642,8 +1657,8 @@ registerCommand("@function","<<",">>",  [](const std::string& args) {
     }  
      return 0;} 
 */
-const std::string __u8path=parse_utf8(argv[1]); 
-  ; fs::path cpsPath(__u8path);  
+  std::string __u8path=getargv_path(argv[1]); __u8path=parse_utf8(__u8path);
+  ; fs::path cpsPath(__u8path);
     if (!fs::exists(cpsPath)) {
        std::cerr << "File not found.\n";
         return 1;
