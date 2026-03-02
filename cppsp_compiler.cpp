@@ -13,6 +13,11 @@
 bool isWindows=false;bool isMac=false;bool isLinux =false;
  #if defined(_WIN32) || defined(_WIN64) 
  #define isWindows 1 
+ typedef unsigned int UINT;
+typedef int BOOL;
+
+extern "C" BOOL __stdcall SetConsoleOutputCP(UINT wCodePageID);
+extern "C" BOOL __stdcall SetConsoleCP(UINT wCodePageID);
  #elif defined(__APPLE__) && defined(__MACH__) 
  #define isMac 1 
  #elif defined(__linux__) 
@@ -130,6 +135,7 @@ Token tokenizeFile(std::istream& funcfile,size_t lineno = 1) {
                 break;
             }
         }
+         
          
     };
 
@@ -425,19 +431,18 @@ return result;
             std::string inner;
             while (i < src.size()&&varend) {if(!src[i+1]){inner+=src[i];}
                  std::istringstream ss(inner);
-                    if (src[i] == '\n'||!src[i+1]){invar=tokenizeFile(ss,var_inner_lineno);
+                    if (src[i] == '\n'||!src[i+1]){Token tmp=tokenizeFile(ss,var_inner_lineno);
+                        while((tmp.children.back().value==";"))tmp.children.pop_back();
+                        
+                        invar=tmp;
                          
-                        for(auto& child : invar.children){
+                        for(auto& child : invar.children){  
                    if( child.type != TokenType::TYPE) node.children.push_back(child);
                                         }
                     if(invar.children.back().type==TokenType::TYPE){varend=false;
                     node.children.push_back(invar.children.back());} 
-                    if(invar.children.back().type==TokenType::NAMESPACELIKE&&!invar.children.back().children.empty()){std::string scopedtype=var_nodes(invar.children.back()).value.substr(1,invar.children.back().children.back().value.size()-1);
-                        if( typeKeywords.find(scopedtype)!=typeKeywords.end()){varend=false;
-                            for(auto& child : node.children){if(child.type==TokenType::IDENTIFIER)child.type=TokenType::STRUCTLIKE;
-                                what_is_struct_like.insert(child.value);}
-                   }
-                    }
+                   
+                    
                   
                       else {inner="";}
                       lineno++;
@@ -446,12 +451,12 @@ return result;
                     
 
             }
-            if(what_is_struct_like.find(invar.children.back().value) != what_is_struct_like.end()){
+           /* if(what_is_struct_like.find(invar.children.back().value) != what_is_struct_like.end()){
                 for(Token& p:invar.children){
                     if(p.type==TokenType::IDENTIFIER){ p.type==TokenType::STRUCTLIKE;
                     what_is_struct_like.insert(p.value);}
                 }
-            }
+            }*/
             
  
            
@@ -509,6 +514,19 @@ if (matched) continue;
                 if(root.children.back().value=="@function"){if (what_is_funcname.find(v.value) != what_is_funcname.end()&&v.type != TokenType::TYPE)   v.type = TokenType::funcIDENTIFIER;
                     root.children.push_back(v);continue;}
                     if(root.children.back().value=="function"){
+                        if(whole.value.find(".")!=std::string::npos){
+                             if (what_is_namespace_like.find(v.value) != what_is_namespace_like.end()&&v.type != TokenType::TYPE
+                ) v.type = TokenType::NAMESPACELIKE;
+                
+                            Token* cur = &node;//指向node地址
+                        if(depth==1){node=v;cur=&node;continue;}
+                    if(depth>1){
+                        while(!cur->children.empty()){cur = &cur->children.back();} //指向還沒有子節點的a.b.c的最後面一個節點
+                        v.value="."+v.value;if(v.type != TokenType::TYPE){ cur->children.push_back(v); //把a.b.c逐漸從a變a.b變a.b.c
+                            continue;}else{cur->children.push_back(v);root.children.back().children.push_back(node);continue;}
+
+                    }
+                         }
                       if(v.type != TokenType::TYPE) v.type = TokenType::funcIDENTIFIER;
                       what_is_funcname.insert(v.value);
                     }else{
@@ -556,6 +574,7 @@ if (matched) continue;
                           }
                 }
             }
+            if(depth>1&&!root.children.empty()&&root.children.back().value=="function")continue;
             if(depth>1){ root.children.push_back(node); }
             continue;
         }
@@ -940,6 +959,38 @@ void registcondition(){
         }
         return argcond+argcont+"\n";
     });
+
+    registerToken("while", [](const Token& node) {
+        std::string argcond,argcont,cur,cr,ed;std::vector<char> sepg;int sep=0;
+        for(auto& root: node.children){
+            if(root.value=="("){ argcond="while(";
+                for(auto& cond: root.children){
+                    if(cond.value==";"||cond.value==","){sepg.push_back(cond.value[0]);if(cond.value==";")sep++;}
+                   cur= singletoken(cond,";").value;
+                    if(cur=="("||cur=="{"){for(auto& p:cond.children){cur+= singletoken(p,",").value;}}
+                    if(cond.type==TokenType::IDENTIFIER){cur=" "+cur;}
+                    argcond+=cur;
+                }
+                if(sep==2){
+                    for(size_t i=0,j=0; i<argcond.size(); i++){ if(argcond[i]==';'){ if(sepg[j]==','){argcond[i]=',';} j++; }}
+                } 
+            }
+            if(root.value=="{"){ argcont="{";   
+                for( size_t i=0; i<root.children.size(); i++){
+                    auto& cont=root.children[i];
+                    cr= singletoken(cont,";").value;
+                    if(cont.value=="<{"||cont.value=="}>"||cont.type==TokenType::COMMENT){continue;}
+                    if(cr=="("){for(auto& p:cont.children){cr+= singletoken(p,"").value;}}
+                    argcont+=cr;
+                    if(cont.type==TokenType::IDENTIFIER||cont.type==TokenType::STRING||cont.type==TokenType::NUMBER
+                    ||cont.type==TokenType::CHAR||cont.type==TokenType::INJECT||cont.type==TokenType::OPERATOR||cont.value=="("
+                    ||cont.type==TokenType::funcIDENTIFIER||cont.type==TokenType::NAMESPACELIKE||cont.type==TokenType::STRUCTLIKE
+                    ){ if( root.children[i+1].value=="}"||root.children[i+1].line_number==cont.line_number+1){ argcont+=";\n";}
+                        }   
+                } }
+        }
+        return argcond+argcont+"\n";
+    });
 }
 
 void registfunckeyword(){
@@ -947,6 +998,7 @@ void registfunckeyword(){
         std::string parag,type,funcname,cont,cr;bool declared=false,guesstype=false,hasparen=false;
         for(auto& p:node.children){
             if(p.type==TokenType::TYPE){type=p.value;type=(type=="float")?"double":(type=="string")?"std::string":type;}
+            if(p.type==TokenType::NAMESPACELIKE){type=singletoken(p,"").value;}
             if(p.type==TokenType::funcIDENTIFIER){funcname=p.value;}
             if(p.value=="("){parag="("; hasparen=true;  
                 for(auto& child:p.children){ if(child.value=="<{"||child.value=="}>"||child.type==TokenType::COMMENT){continue;}
@@ -1033,7 +1085,7 @@ void registfunckeyword(){
         return "";
      });
      registerfunc("use",[](const Token& node){
-         std::string result,scope,useas[3],usecustom;
+         std::string result,scope,usecustom;bool notusingname=false;
           auto trim = [](std::string s) {
         while (!s.empty() && (s.front() == ' ' || s.front() == '\t')) s.erase(s.begin());
         while (!s.empty() && (s.back() == ' ' || s.back() == '\t')) s.pop_back();
@@ -1041,15 +1093,21 @@ void registfunckeyword(){
     };
          for(auto& child:node.children){
             std::stringstream ss(child.value);
-            while (getline(ss, scope, ',')){scope=trim(scope); 
+            while (getline(ss, scope, ',')){scope=trim(scope); notusingname=false; 
               for(auto& [k,v]:custom_command_arg){  
                 if(k.compare(0,scope.size()+1,scope+".")==0) {
                     custom_command_arg[k.substr(scope.size()+1)]=v;}
               }
                 for(size_t i=0;i<scope.size();i++){
                     if(scope[i]=='.'){scope[i]=':';scope.insert(i+1,":");}
+                    if(scope[i]=='-'&&scope[i+1]=='>'){scope[i]=':';scope[i+1]=':';notusingname=true;}
                 }
-                result+="using namespace "+scope+";\n";
+                if(notusingname) { 
+                result+="using  "+scope+";\n";}
+                else{
+                    result+="using namespace "+scope+";\n";
+                }
+                
     
                 }
             }
@@ -1376,10 +1434,28 @@ topoDFS(mod);
     }
     return result;
 }
+
+std::string parse_utf8(const std::string &s) {
+    std::string r;
+    for(size_t i=0;i<s.size();)
+        if(s[i]=='\\'&&i+3<s.size()&&s[i+1]=='x')
+            r.push_back(static_cast<char>(std::stoi(s.substr(i+2,2),nullptr,16))),i+=4;
+        else
+            r.push_back(s[i++]);
+    return r;
+}
+std::wstring to_wide(const std::string& utf8_str) {
+    return std::filesystem::path(utf8_str).wstring();
+}
  
 int main(int argc, char* argv[]) {
     bool enableclang =false;bool skipcompile=false;bool enableoverwrite = false;
-  
+    #if defined(_WIN32) || defined(_WIN64) 
+            SetConsoleCP(65001);SetConsoleOutputCP(65001);
+              #else
+            //have no requirement for other platforms theorically
+             #endif
+     
     //註冊
  
  registfunckeyword();   
@@ -1536,9 +1612,8 @@ registerCommand("@function","<<",">>",  [](const std::string& args) {
     }
 
     bool gen_header=false;
-    if(argc>2){
+    if(argc>2){  
         for(int i=1;i<argc;i++){
-           
             if(strcmp(argv[i],"-header")==0){  gen_header=true;break;}
             
         }
@@ -1567,7 +1642,8 @@ registerCommand("@function","<<",">>",  [](const std::string& args) {
     }  
      return 0;} 
 */
-  fs::path cpsPath(argv[1]);
+const std::string __u8path=parse_utf8(argv[1]); 
+  ; fs::path cpsPath(__u8path);  
     if (!fs::exists(cpsPath)) {
        std::cerr << "File not found.\n";
         return 1;
@@ -1724,8 +1800,12 @@ std::string local=(isMac || isLinux)? "./":"";
      if( skipcompile||gen_header){
         gppCommand="";
      }else{
-            std::cout << "Compiling: " << gppCommand << "\n";
-             int ret = system(gppCommand.c_str());
+            std::cout << "Compiling: " << gppCommand << "\n";int ret;
+             #if defined(_WIN32) || defined(_WIN64) 
+              ret=_wsystem(to_wide(gppCommand).c_str());
+              #else
+              ret = system(gppCommand.c_str()); 
+             #endif
      
 
     if (ret != 0) {
@@ -1735,6 +1815,13 @@ std::string local=(isMac || isLinux)? "./":"";
 } 
    if(!enableoverwrite) std::cout << "Compilation succeeded! Executable: " << exePath.string() << "\n";
    if(enableoverwrite) std::cout << "Compilation succeeded!\n";
-     if(!enableoverwrite&&!gen_header) int runexe= system(exePath.string().c_str());
+     if(!enableoverwrite&&!gen_header) {int runexe;
+        #if defined(_WIN32) || defined(_WIN64) 
+               runexe=_wsystem(to_wide("\""+exePath.string()+"\"").c_str());
+              #else
+              runexe= system("\""+exePath.string().c_str()+"\"");
+             #endif
+        }
+        
     return 0;
 }
