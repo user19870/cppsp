@@ -25,15 +25,19 @@ curl -L -o cppsp_compiler.exe https://github.com/user19870/cppsp/raw/refs/heads/
 * 使用cmd、控制台編譯.cppsp檔
 ```
 cppsp_compiler script.cppsp( 如果沒設定到環境改成.\cppsp_compiler.exe or c:\...\cppsp_compiler.exe)
+cppsp_compiler mod.cppsp -header (產生.h檔案並註解掉int main....)
 ```
 * 使用include.ini、lib.ini設定c++的include/lib資料夾
  ```
  include.ini:C:\...\include1,c:\...\include2
 lib.ini:C:\...\lib1,c:\...\lib2
+module.ini:C:...\modfolder1,c:...\modfolder2
  ```
 ## 特性
 * 只有print("hello world")也能編譯
-* 可以只用所有c++標頭
+* 可以透過import使用所有c++標頭
+- 可以透過import使用.cppsp模組
+   - deepermod.cppsp 也能透過import使用c++標頭跟.cppsp模組 
 * 可以用 @inject and @function 注入c++程式碼
 * 使用var...type宣告
 * 能在關鍵字和全域控制變數
@@ -42,7 +46,9 @@ lib.ini:C:\...\lib1,c:\...\lib2
 * `@command("...")`: 把參數加入編譯指令:-Os、-m64
 * `#overwrite`:讓 `@command()` 覆蓋整個編譯指令: `@command("g++ -Os -m64 -nostdlib  -shared   -o dll.dll dll.cpp")` 並在 int main(){..}後分別自動加/*和*/
 * `#skipcompile` :跳過編譯直接執行結果
-* `import` :使用c++標頭(不需要<>、"") `import iostream,cstdio,x,y,.....`
+- `import` :使用c++標頭(不需要<>、"") `import iostream,cstdio,x,y,.....`
+    - 也能使用.cppsp 模組如`import a.b.mod`，a.b.mod代表路徑a/b/mod.cppsp，會從module.ini裡面設定的路徑尋找，a.b.mod會產生namespace a{ namespace b{ namespace mod{...}}}
+* `package` :寫在.cppsp模組當中，用來替換import a.b.c產生的命名空間
 * `@function<<...>>`:  把原生c++程式碼注入到#include 後面 int main()前面
    `@inject(...)` : 把程式碼注入到int main(){...}
 * `print()`: 把內容輸出到終端/控制台 `print("12\n"," ",1," ",2.1,true,false," ")`
@@ -55,6 +61,12 @@ lib.ini:C:\...\lib1,c:\...\lib2
 function [std::pow,std::sort,abs,sqrt] // 註冊來自c++的函數但具有模板的函數依然需要<{...}>例如 std::sort(x,x+5,<{ std::greater<int>()}>)
 ```
 * `struct S{...}` :定義一個結構體，結構體名稱會成為型別，所以可以使用var ... S之類的用法
+* `@custom xxx("...",<{...}>,...)`: @custom可以讓使用者自訂語法，允許巢狀模板和單層命名空間隔離，"..."內容會變成產生的程式碼，<{...}>與其類似但它會被當成佔位符號，並在呼叫時被參數替換。 `namespace n{ @custom.... }`
+```
+@custom subs(<{T}>," sub(",<{T a}>,",",<{T b}>,")"," {return a-b;}")
+subs(int ,int a,int b)
+```
+* `use`:使用命名空間例如 use a.b.c，@custom產生的語法也會被use影響
 * `//`:註解
 ## 語法
 * 一行控制一個變數或用逗號隔開
