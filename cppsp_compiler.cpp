@@ -1802,6 +1802,14 @@ std::string local=(isMac || isLinux)? "./":"";
     std::string includeFlags = parseIni("include.ini", "-I");
     std::string libFlags = parseIni("lib.ini", "-L");
     
+#if defined(_WIN32) || defined(_WIN64) 
+ fs::path BackupcppPath,BackupexePath;
+if(!enableoverwrite&&!skipcompile&&!gen_header){
+              fs::copy_file(cppPath,"cppsptmp.cpp",fs::copy_options::overwrite_existing);
+               BackupcppPath=cppPath;cppPath=cppPath.parent_path() / "cppsptmp.cpp";
+               BackupexePath=exePath;exePath=exePath.parent_path() / "cppsptmp.exe";
+}
+ #endif             
 
     std::string gppCommand = "g++ \"" + cppPath.string() + "\"" + " -o \"" + exePath.string() + "\" "
                              + extraFlags + " "
@@ -1818,6 +1826,11 @@ std::string local=(isMac || isLinux)? "./":"";
             std::cout << "Compiling: " << gppCommand << "\n";int ret;
              #if defined(_WIN32) || defined(_WIN64) 
               ret=_wsystem(to_wide(gppCommand).c_str());
+              if(!enableoverwrite){ 
+              fs::rename("cppsptmp.cpp",BackupcppPath.string());
+              fs::rename("cppsptmp.exe",BackupexePath.string()+".exe");
+              exePath=BackupexePath;
+              }
               #else
               ret = system(gppCommand.c_str()); 
              #endif
