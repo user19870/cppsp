@@ -1,7 +1,5 @@
 # cppsp
 cppsp是一個轉譯式語言(原始碼轉原始碼)，可以把.cppsp檔案轉成.cpp並編譯、執行，是單人開發的實驗性語言，不適合大專案使用。此cppsp與c++ server pages無關。
-* [English](https://github.com/user19870/cppsp)
-* [中文](README_tw.md)
 ## 安裝
 * 準備c++編譯器(gcc/clang)並設定到環境變數，讓cppsp可以呼叫g++、clang++指令
 * [到官網](https://github.com/user19870/cppsp)下載cppsp_compiler.exe或linux、mac版本或自己編譯
@@ -23,9 +21,11 @@ curl -L -o cppsp_compiler.exe https://github.com/user19870/cppsp/raw/refs/heads/
 ```
 # 使用方法
 * 使用cmd、控制台編譯.cppsp檔
+* **`cppsp_compiler mod.cppsp -header`** (產生.h檔案並註解掉int main....)
+* **`cppsp_compiler new project`** (產生include.ini、lib.ini、module.ini、project.cppsp並把當前路徑設定到三個ini當中)
+
 ```
 cppsp_compiler script.cppsp( 如果沒設定到環境改成.\cppsp_compiler.exe or c:\...\cppsp_compiler.exe)
-cppsp_compiler mod.cppsp -header (產生.h檔案並註解掉int main....)
 ```
 * 使用include.ini、lib.ini設定c++的include/lib資料夾
  ```
@@ -41,6 +41,8 @@ module.ini:C:...\modfolder1,c:...\modfolder2
 * 可以用 @inject and @function 注入c++程式碼
 * 使用var...type宣告
 * 能在關鍵字和全域控制變數
+* 可以用utf8替代原來的檔名來呼叫:`cppsp_compiler \xe9\x80\x99\xe6\x98\xaf\x20\xe4\xb8\xad\xe6\x96\x87\x68\x75\x20\x6b\x6f\x6c\x20\x20\x70\xe6\xaa\x94\xe6\xa1\x88\x2e\x63\x70\x70\x73\x70` 
+* 可以編譯utf8編碼的原始檔名(已經盡力，可能還是有些裝置無法運作)
 ## 關鍵字
 * `#useclang` 或 `#usegcc` : 使用clang/gcc編譯
 * `@command("...")`: 把參數加入編譯指令:-Os、-m64
@@ -54,19 +56,21 @@ module.ini:C:...\modfolder1,c:...\modfolder2
 * `print()`: 把內容輸出到終端/控制台 `print("12\n"," ",1," ",2.1,true,false," ")`
 * `input()`:  輸入變數如 `input(a,b,c)`
 * `var` ....`type` 可以宣告變數，允許多變數宣告，且宣告必須為值不能是算式，但可以用<{....}>把c++程式碼當成值來宣告，type只允許int/float/char/string/bool 
-* `if/else/else if(...){...}` :跟c++的類似，但允許`if(input(x)>1)`，可以在{...}裡面寫變數操作(=,+,-,*,/,++....)和cppsp關鍵字
+* `if/else/else if/while(...){...}` :跟c++的類似，但允許`if(input(x)>1)`，可以在{...}裡面寫變數操作(=,+,-,*,/,++....)和cppsp關鍵字
 * `for(...){...}`: 支持`for( type i=0,i<10,i++)`、`for(type i=0,j=10;i<10&&j>0;i++,j++)`、`for(type i:x)`等多種方式，可以在{...}裡面寫變數操作(=,+,-,*,/,++....)和cppsp關鍵字
 * `function f()...`:`function f() type {...return...}`可以定義有型別函數、 `function f(){...}`定義void函數、`function f()`宣告void函數、`function f(){...return...}`定義函數並使用c++的auto型別
 ```
 function [std::pow,std::sort,abs,sqrt] // 註冊來自c++的函數但具有模板的函數依然需要<{...}>例如 std::sort(x,x+5,<{ std::greater<int>()}>)
 ```
 * `struct S{...}` :定義一個結構體，結構體名稱會成為型別，所以可以使用var ... S之類的用法
-* `@custom xxx("...",<{...}>,...)`: @custom可以讓使用者自訂語法，允許巢狀模板和單層命名空間隔離，"..."內容會變成產生的程式碼，<{...}>與其類似但它會被當成佔位符號，並在呼叫時被參數替換。 `namespace n{ @custom.... }`
+- `@custom xxx("...",<{...}>,...)`: @custom可以讓使用者自訂語法，允許巢狀模板和單層命名空間隔離，"..."內容會變成產生的程式碼，<{...}>與其類似但它會被當成佔位符號，並在呼叫時被參數替換。 `namespace n{ @custom.... }`
+   - 如果有"@"在裡面， `＠custom vec＠mn("std::vector<",<{type}>,">") ` 的vec@mn的呼叫會被生成到int main(){...}裡面
 ```
 @custom subs(<{T}>," sub(",<{T a}>,",",<{T b}>,")"," {return a-b;}")
 subs(int ,int a,int b)
 ```
-* `use`:使用命名空間例如 use a.b.c，@custom產生的語法也會被use影響
+- `use`:使用命名空間例如 use a.b.c，@custom產生的語法也會被use影響
+ - use a.b.c->d 可以只用a.b.c裡面的d，如struct/function/其他東西，
 * `//`:註解
 ## 語法
 * 一行控制一個變數或用逗號隔開
