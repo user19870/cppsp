@@ -26,6 +26,7 @@ Download the cppsp_compiler.exe or compiler the sourcecode by yourself
 * Use cmd or other console to compiler .cppsp file:
 `cppsp_compiler(if not in environment path:.\cppsp_compiler.exe or c:\...\cppsp_compiler.exe) script.cppsp`
 * **`cppsp_compiler mod.cppsp -header`** will generate .h file and turn int main(){...} a comment
+* **`cppsp_compiler new project`**  : create new project with empty include.ini、lib.ini、module.ini、project.cppsp and setting current path in the three .ini
 * Setting c++ include/lib/cppsp_mod folder by .ini file
 ```
 include.ini:C:\...\include1,c:\...\include2
@@ -42,6 +43,8 @@ module.ini:C:\...\modfolder1,c:\...\modfolder2
 * enable indentation and multi-line after v1.3
 * declare multi variables with `var`.....`type`
 * control variables inside keyword or globle
+* Can use utf8 encoding bytes as alternative of filename: `cppsp_compiler \xe9\x80\x99\xe6\x98\xaf\x20\xe4\xb8\xad\xe6\x96\x87\x68\x75\x20\x6b\x6f\x6c\x20\x20\x70\xe6\xaa\x94\xe6\xa1\x88\x2e\x63\x70\x70\x73\x70`
+* Enable filename encoded by utf8(I try my best but some devices may not work.)
 ## Keyword
 * `#useclang` or `#usegcc` : use clang++ or g++ compile command
 * `@command("...")`: add command when compile like:-Os、-m64
@@ -55,7 +58,7 @@ module.ini:C:\...\modfolder1,c:\...\modfolder2
 * `print()`: print content to console like print("12\n"," ",1," ",2.1,true,false," ")
 * `input()`: input data to variables
 * `var`.....`type`: declare variables with/without values. Support multi variables and type can be written as `int/float/char/string/bool`. <{1+1}> is a value but 1+1 not(it's expression)
-* `if/else/else if(...){...}`:similar to "if/else/else if" in c++ but enable syntax: `if(input(x)>1)`. Can write cppsp keywords and operation( =,+,-,*,/,++....) in {...}
+* `if/else/else if/while(...){...}`:similar to "if/else/else if" in c++ but enable syntax: `if(input(x)>1)`. Can write cppsp keywords and operation( =,+,-,*,/,++....) in {...}
 * `for(...){...}`:similae to "for" in c++ like for( type i=0,i<10,i++), for(type i=0,j=10;i<10&&j>0;i++,j++) or for(type i:x) . Can write cppsp keywords and operation( =,+,-,*,/,++....) in {...}
 * `function f()...`:`function f() type {...return...}` will define a function with type, `function f(){...}` will define a void function,`function f()` will declare a void function, `function f(){...return...}`  will define a function with auto in c++. [Usages](example/functionTest.cppsp)
 ```
@@ -64,12 +67,14 @@ function [std::pow,std::sort,abs,sqrt] // will regist functions from c++
 ```
 [Usecppfunction](example/Usecppfunction.cppsp)
 * [`struct S{...}`](example/structtest.cppsp) : define a structure and the name of structure will become a type ,so can use something like var....S. If write `struct a b c`without `{}` a ,b, and c will become type but won't generate any c++ code
-* [`@custom xxx("...",<{...}>,...)`](https://github.com/user19870/cppsp/blob/First/example/customSyntax.cppsp) : ＠custom can let users write own syntaxs. it is a transpile-time pattern-driven code generator with nested templates, namespace-scoped features **"..." can generate code, <{...}> is similar to it but will become a placeholder and replaced by parameter when the custom syntax is called.** Code will generate in global and the inner of some cppsp keywords. ` namespace n{ @custom.... }`
+- [`@custom xxx("...",<{...}>,...)`](https://github.com/user19870/cppsp/blob/First/example/customSyntax.cppsp) : ＠custom can let users write own syntaxs. it is a transpile-time pattern-driven code generator with nested templates, namespace-scoped features **"..." can generate code, <{...}> is similar to it but will become a placeholder and replaced by parameter when the custom syntax is called.** Code will generate in global and the inner of some cppsp keywords. ` namespace n{ @custom.... }`
+  -  If there is any "＠" is in ＠custom like `＠custom vec＠mn("std::vector<",<{type}>,">") `  vec＠mn will appear in main(){....}
 ```
 @custom subs(<{T}>," sub(",<{T a}>,",",<{T b}>,")"," {return a-b;}")
 subs(int ,int a,int b)
 ```
-* `use` :  use namespaces like :`use a.b.c`. "xxx" from @custom xxx(...) also affected by `use` 
+- `use` :  use namespaces like :`use a.b.c`. "xxx" from @custom xxx(...) also affected by `use`
+   - `use a.b.c->d` can use function/struct/other in namespace a.b.c but not use the whole namespace  
 * `//`:comment
 ## Syntax
 * control variables in cppsp once a line or separate by `;`
