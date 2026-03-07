@@ -760,6 +760,7 @@ std::string runTokenFunc(const Token& node) {
      auto cusit =custom_command_arg.find(node.value); 
      if(node.type==TokenType::funcIDENTIFIER&&!node.children.empty()){
         if(cusit!=custom_command_arg.end()){  
+             if(node.value.find("@")!=std::string::npos )return "";
             std::vector<Token> templa=cusit->second; 
             std::vector<size_t> args;std::string out,tmp;bool hasback=false;
             for(size_t pos=0;pos<templa.size();pos++){if(templa[pos].type==TokenType::INJECT)args.push_back(pos);}
@@ -805,9 +806,22 @@ std::string runToken(const Token& node) {
      
         auto cusit =custom_command_arg.find(node.value);
 
-        if( cusit!=custom_command_arg.end()){  
-    
-         return "";
+        if( cusit!=custom_command_arg.end()){
+            if(node.value.find("@")==std::string::npos )return "";
+            std::vector<Token> templa=cusit->second; 
+            std::vector<size_t> args;std::string out,tmp;bool hasback=false;
+            for(size_t pos=0;pos<templa.size();pos++){if(templa[pos].type==TokenType::INJECT)args.push_back(pos);}
+            for(size_t i=0,j=0;i<node.children[0].children.size();i++){ Token cur=node.children[0].children[i];cur.value=singletoken(cur,",").value;
+                if(cur.value!="<{"&&cur.value!="}>"){
+                    if(cur.value==","||cur.value==")"){j++;tmp="";continue;}else{tmp+=" "+cur.value;}
+                    if(j>=args.size()){j=0;hasback=true; }
+                     if(cur.value=="{"){ for(auto& inside:cur.children)cur.value+=singletoken(inside,";").value;}
+                   if(!hasback){templa[args[j]].value=tmp;} else{templa[args[j]].value+=tmp;}
+                   
+                }
+            }
+           for(auto& p:templa){out+=p.value;}
+         return out;
         }
                bool iftemplate=false; for(auto& child:node.children){  if(child.value!="(")iftemplate=true;}
              if(!iftemplate)result=node.value+"(" ;else  result=node.value; 
@@ -1440,6 +1454,7 @@ std::string parse_utf8(const std::string &s) {
     for(size_t i=0;i<s.size();)
         if(s[i]=='\\'&&i+3<s.size()&&s[i+1]=='x')
             r.push_back(static_cast<char>(std::stoi(s.substr(i+2,2),nullptr,16))),i+=4;
+            //16代表把字串當16進位看
         else
             r.push_back(s[i++]);
     return r;
@@ -1450,15 +1465,15 @@ std::wstring to_wide(const std::string& utf8_str) {
 #if defined(_WIN32) || defined(_WIN64)
 
 #include <windows.h>
-    std::string getargv_path(const std::string& arv){
+    std::string getargv_path(const std::string& arv,int pos){
 int argc;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-    std::string result=std::filesystem::path(argv[1]).u8string();
+    std::string result=std::filesystem::path(argv[pos]).u8string();
     LocalFree(argv); 
     return result;
     }
     #else 
-    std::string getargv_path(const std::string& arv){
+    std::string getargv_path(const std::string& arv,int pos){
  return arv;
     }
 #endif
@@ -1632,6 +1647,13 @@ registerCommand("@function","<<",">>",  [](const std::string& args) {
             if(strcmp(argv[i],"-header")==0){  gen_header=true;break;}
             
         }
+        if(strcmp(argv[1],"new")==0){std::string newfname =getargv_path(argv[2],2)+".cppsp";
+            if(!fs::exists("include.ini")){std::ofstream inc("include.ini");inc<<fs::current_path().string();inc.close();}
+            if(!fs::exists("lib.ini")){std::ofstream inc("lib.ini");inc<<fs::current_path().string();inc.close();}
+            if(!fs::exists("module.ini")){std::ofstream inc("module.ini");inc<<fs::current_path().string();inc.close();}
+            if(!fs::exists(newfname)){fs::path incpa(newfname);std::ofstream inc(incpa );inc.close();}
+                  std::cout<<"Create new project: "<<newfname<<"\n";
+                   return 0;}
     }
 
   //預留模組安裝功能
@@ -1657,7 +1679,7 @@ registerCommand("@function","<<",">>",  [](const std::string& args) {
     }  
      return 0;} 
 */
-  std::string __u8path=getargv_path(argv[1]); __u8path=parse_utf8(__u8path);
+  std::string __u8path=getargv_path(argv[1],1); __u8path=parse_utf8(__u8path);
   ; fs::path cpsPath(__u8path);
     if (!fs::exists(cpsPath)) {
        std::cerr << "File not found.\n";
@@ -1673,6 +1695,7 @@ registerCommand("@function","<<",">>",  [](const std::string& args) {
     fs::path cppPath = cpsPath.parent_path() / (cpsPath.stem().concat(".cpp"));
     if(gen_header) cppPath = cpsPath.parent_path() / (cpsPath.stem().concat(".h"));
     std::ofstream outfile(cppPath);
+    
     if (!outfile) {
         std::cerr << "Cannot create cpp file.\n";
         return 1;
@@ -1755,8 +1778,9 @@ if (!comment && svimportline.find("import ") != std::string::npos) {
     }
 
 
-     for(int i=0;i<tokenstream.size();i++) {std::string tokcode=runTokenFunc(tokenstream[i]); 
-        outfile << tokcode;}
+          
+     for(int i=0;i<tokenstream.size();i++) {
+        outfile << runTokenFunc(tokenstream[i]);}
     
      /*
     for(auto& p:tokenstream){
@@ -1789,7 +1813,7 @@ if (!comment && svimportline.find("import ") != std::string::npos) {
         if(fdcommd.find("#skipcompile")!= std::string::npos){skipcompile=true;}
  
     }
-    for(auto& p:tokenstream) {std::string tokcode=runToken(p);outfile << tokcode;}
+    for(auto& p:tokenstream) { outfile << runToken(p);}
     
 
     outfile << "\nreturn 0;\n}\n";
