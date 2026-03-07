@@ -68,7 +68,7 @@ function [std::pow,std::sort,abs,sqrt] // will regist functions from c++
 [Usecppfunction](example/Usecppfunction.cppsp)
 * [`struct S{...}`](example/structtest.cppsp) : define a structure and the name of structure will become a type ,so can use something like var....S. If write `struct a b c`without `{}` a ,b, and c will become type but won't generate any c++ code
 - [`@custom xxx("...",<{...}>,...)`](https://github.com/user19870/cppsp/blob/First/example/customSyntax.cppsp) : ＠custom can let users write own syntaxs. it is a transpile-time pattern-driven code generator with nested templates, namespace-scoped features **"..." can generate code, <{...}> is similar to it but will become a placeholder and replaced by parameter when the custom syntax is called.** Code will generate in global and the inner of some cppsp keywords. ` namespace n{ @custom.... }`
-  -  If there is any "＠" is in ＠custom like `＠custom vec＠mn("std::vector<",<{type}>,">") `  vec＠mn will appear in main(){....}
+  -  If there is any "＠" is in ＠custom like `＠custom vec＠mn("std::vector<",<{type}>,">") `  vec＠mn(...) will generate code in main(){....}
 ```
 @custom subs(<{T}>," sub(",<{T a}>,",",<{T b}>,")"," {return a-b;}")
 subs(int ,int a,int b)
