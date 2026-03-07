@@ -44,7 +44,7 @@ module.ini:C:\...\modfolder1,c:\...\modfolder2
 * declare multi variables with `var`.....`type`
 * control variables inside keyword or globle
 * Can use utf8 encoding bytes as alternative of filename: `cppsp_compiler \xe9\x80\x99\xe6\x98\xaf\x20\xe4\xb8\xad\xe6\x96\x87\x68\x75\x20\x6b\x6f\x6c\x20\x20\x70\xe6\xaa\x94\xe6\xa1\x88\x2e\x63\x70\x70\x73\x70`
-* Enable filename encoded by utf8(I try my best but some devices may not work.)
+* Enable compile filename encoded by utf8(I try my best but some devices may not work.)
 ## Keyword
 * `#useclang` or `#usegcc` : use clang++ or g++ compile command
 * `@command("...")`: add command when compile like:-Os、-m64
