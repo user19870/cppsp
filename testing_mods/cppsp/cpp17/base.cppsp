@@ -1,0 +1,60 @@
+import <iostream> ,<string>  ,<winsetup.h> 
+import <vector>,<unordered_map>
+package cppsp.base
+ 
+//////////io區////////////
+function set_terminal_utf8(){
+@inject(" SetConsoleOutputCP(65001);
+SetConsoleCP(65001);")
+}
+//////////字串///////////////
+function len(const string& s) int{
+    var i=0 int
+    for(<{unsigned char}> c:s){
+        if((c & 0xC0) != 0x80){i++}    // abc and 11000... 當abc是10開頭才會等於100000...(0x80)，其他分別是00、01、11
+        }
+    return  i
+}
+function u8slice(const string& s,int start,int length=-1) string{
+    if(start<0){start+= len(s)}
+    var i,bytelen,s_pos,start_pos = <{-1}>,0,<{start+length-1}>,0 int
+    if(<{s.empty()}>){return ""}
+    for(<{unsigned char}> c:s){
+        if((c & 0xC0) != 0x80){i++}
+        if(i<start){start_pos++}
+        if(i>=start&&i<=s_pos){bytelen++}    // abc and 11000... 當abc是10開頭才會等於100000...(0x80)，其他分別是00、01、11
+        }
+        if(length==-1){bytelen=<{s.size()-start_pos;}>}
+    return  <{s.substr(start_pos,bytelen)}>
+}
+function u8replace(string &s,int start,int length,string newValue) {
+    if(start<0){start+= len(s)}
+    var i,bytelen,s_pos,start_pos = <{-1}>,0,<{start+length-1}>,0 int
+     
+    if(<{s.empty()}>){return }
+    for(<{unsigned char}> c:s){
+        if((c & 0xC0) != 0x80){i++}
+        if(i<start){start_pos++}
+        if(i>=start&&i<=s_pos){bytelen++}    // abc and 11000... 當abc是10開頭才會等於100000...(0x80)，其他分別是00、01、11
+        }
+       
+     <{s.replace(start_pos,bytelen,newValue)}>
+}
+
+
+
+
+
+
+//////////容器///////////////
+@custom vec_xxx("struct ",<{vecI}>," : std::vector<",<{int}>,"> {
+    using std::vector<",<{int}>,">::vector; // 繼承所有 constructor
+};")
+struct vecI struct vecF struct vecC struct vecB struct vecS
+vec_xxx(vecI,int,int);vec_xxx(vecF,float,float);vec_xxx(vecC,char,char);vec_xxx(vecB,bool,bool);vec_xxx(vecS,string,string);
+
+@custom vec@mn("std::vector<",<{type}>,">")
+
+@custom vec("std::vector<",<{type}>,">")
+
+ 
