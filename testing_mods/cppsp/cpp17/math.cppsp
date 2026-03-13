@@ -1,0 +1,14 @@
+import <math.h>
+ package cppsp.math
+ @custom _single_param("inline ",<{type}>, <{math func}>,"(",<{type of x}>," x){return std::",<{sin}>,"(x);}
+ ")
+ @custom _double_param("inline ",<{type}>, <{math func}>,"(",<{type of x}>," x,",<{type of y}>," y){return std::",<{sin}>,"(x,y);}
+ ")
+ function [sin,cos,tan,abs,sqrt,log,exp,floor,ceil,round,pow,modf]
+ _single_param(double,sin,double,sin)  _single_param(double,cos,double,cos)  _single_param(double,tan,double,tan)
+    _single_param(double,abs,double,abs)
+     _single_param(double,sqrt,double,sqrt)
+      _single_param(double,log,double,log)  _single_param(double,exp,double,exp)
+       _single_param(double,floor,double,floor)  _single_param(double,ceil,double,ceil)  _single_param(double,round,double,round)
+       _double_param(double,pow,double,double,pow)
+
