@@ -218,10 +218,18 @@ auto justconnectidentifier = [&](size_t& idx) -> Token {
          
 
         // 單行註解
-        if (src[i] == '/' && i + 1 < src.size() && src[i + 1] == '/') {
+        if ((src[i] == '/' && i + 1 < src.size() && src[i + 1] == '/')
+        ||(src[i]=='/'&&i + 1 < src.size() && src[i + 1] == '*') ){
+            std::string begin=(src[i+1]=='*')? "/*":"//";
             std::string comment;
+            if(begin=="//"){
             while (i < src.size() && src[i] != '\n') {
                 comment += src[i++];
+            }}else{comment+="/*";i+=2;
+                while (i < src.size()) {
+                    if(src[i]=='*'&&src[i+1]=='/'){comment+="*/";i+=2;break;}
+                comment += src[i++];
+            }
             }
             root.children.push_back({TokenType::COMMENT, comment+"\n", lineno, {}});
             continue;
@@ -304,14 +312,32 @@ auto justconnectidentifier = [&](size_t& idx) -> Token {
                 }
                 i++;
             }
-
-        if (!root.children.empty() && (root.children.back().type == TokenType::KEYWORD
+ 
+             
+          
+             if(startChar =='['&&!root.children.empty()&&!root.children.back().children.empty()&&root.children.back().type == TokenType::NAMESPACELIKE){
+                 Token* node = &root; //指標必免值覆蓋
+while (!node->children.empty()) {  node = &node->children.back(); }
+                if (!inner.empty()){ //把[]變成變數值(和原來變數合併)
+             node->value += std::string(1,'<')+inner+std::string(1, '>');
+             what_is_struct_like.insert(node->value);
+ }}      
+            else if(startChar =='['&&!root.children.empty()&&!root.children.back().children.empty()
+            &&(root.children.back().value=="function"||root.children.back().value=="var")){
+              Token* node = &root; //指標必免值覆蓋
+while (!node->children.empty()) {  node = &node->children.back(); }
+                if (!inner.empty()){ //把[]變成變數值(和原來變數合併)
+               node->value += std::string(1,'<')+inner+std::string(1, '>');
+               what_is_struct_like.insert(node->value);
+ }} 
+            else if (!root.children.empty() && (root.children.back().type == TokenType::KEYWORD
                  ||root.children.back().type==TokenType::funcIDENTIFIER||root.children.back().type==TokenType::funcKEYWORD
                 ||root.children.back().type==TokenType::NAMESPACELIKE||root.children.back().type==TokenType::STRUCTLIKE) ){ 
                 if (!inner.empty()) {  //變成關鍵字子節點
                 
                std::istringstream ss(inner);Token iner=tokenizeFile(ss,inner_lineno);
-               for(auto& child : iner.children){  node.children.push_back(child); // 不再使用 reinterpret_cast
+               for(auto& child : iner.children){  
+                node.children.push_back(child); // 不再使用 reinterpret_cast
                 if(startChar=='['&&root.children.back().type==TokenType::funcKEYWORD){
                      if(child.value!="]"&&child.value!=",") what_is_funcname.insert(child.value);
                    }
@@ -328,6 +354,11 @@ auto justconnectidentifier = [&](size_t& idx) -> Token {
 }else if(startChar =='['&&!root.children.empty() && root.children.back().type == TokenType::IDENTIFIER){
  if (!inner.empty()){ //把[]變成變數值(和原來變數合併)
     root.children.back().value += std::string(1,startChar)+inner+std::string(1, endChar);
+ }
+}else if(startChar =='['&&!root.children.empty() &&root.children.back().type == TokenType::TYPE){
+ if (!inner.empty()){ //把[]變成變數值(和原來變數合併)
+    root.children.back().value += std::string(1,'<')+inner+std::string(1, '>');
+    what_is_struct_like.insert(root.children.back().value);
  }
 }
 else   {
@@ -561,6 +592,7 @@ if (matched) continue;
                     v.type = TokenType::funcIDENTIFIER;
                     root.children.back().children.push_back(v);continue;
                 }
+                
 
                     if(whole.value==v.value){root.children.push_back(v);} //沒有a.b.c只有一層
                     else{Token* cur = &node;//指向node地址
@@ -884,6 +916,7 @@ void printToken(const Token& node, int indent=0) {
     } 
   }  
   std::unordered_map<std::string, std::string> namespace_parent;
+  std::unordered_map<std::string, std::string> struct_extension;
  
 std::string namespace_tree(std::string name){
 std::string result;
@@ -1005,6 +1038,15 @@ void registcondition(){
         }
         return argcond+argcont+"\n";
     });
+    registerToken("extension_slot", [](const Token& node){std::string result="";
+        for(auto& child:node.children){
+            if(child.value=="("){
+                for(auto& ext:child.children)if(ext.type==TokenType::STRING&&struct_extension.count(ext.value))
+ result=struct_extension[ext.value];
+            }
+        } 
+        return result;}); 
+    
 }
 
 void registfunckeyword(){
@@ -1079,14 +1121,33 @@ void registfunckeyword(){
         return result+"\n";
      });
       registerfunc("struct",[](const Token& node){
-        std::string result,struc; 
+        std::string result,struc;bool isDerive=false;bool isExten=false;
+        int strucnum=0;
          for(auto& child:node.children){
-            if(child.type==TokenType::STRUCTLIKE||child.type==TokenType::TYPE){struc=child.value;}
-            if(child.value=="{"){ result="struct "+struc+"{";   
+            if(child.type==TokenType::STRUCTLIKE||child.type==TokenType::TYPE){
+                if(child.value=="derive"&&strucnum==1){isDerive=true;struc+=":";}
+                if(child.value=="extension"&&strucnum==0){isExten=true;}
+                if(!isDerive&&!isExten){ struc=child.value;strucnum++;}}
+            if(child.value=="("&&isDerive){ 
+                for(auto& cond: child.children){
+     if(cond.value=="<{"||cond.value=="}>"){continue;}
+      if(cond.value!=","&&cond.value!=")")struc+="public "+singletoken(cond,";").value;
+      else if(cond.value==",")struc+=",";
+            }
+        }
+        if(child.value=="("&&isExten){ 
+                for(auto& cond: child.children){
+      if(cond.type==TokenType::STRING)struc=cond.value;
+            }
+        }
+            if(child.value=="{"&&!isExten){ result="struct "+struc+"{";   
                 for( auto& cont:child.children){
                       result+=singletoken(cont,";").value;
                 } result+=";"; }
+            if(child.value=="{"&&isExten){
+                  for( auto& cont:child.children) if(cont.value!="}") result+=singletoken(cont,";").value;  }
          }
+         if(isExten){struct_extension[struc]+=result;result="";}
         return result+"\n";
      });
      registerfunc("@custom",[](const Token& node){
@@ -1130,6 +1191,8 @@ void registfunckeyword(){
     
  
      registerfunc("package",[](const Token& node){  return "";});
+     registerfunc("impl",[](const Token& node){  return "";});
+
 }
 // ======token區域=======
 //註解
@@ -1497,7 +1560,13 @@ int main(int argc, char* argv[]) {
              std::string arga,type,optrar,cur,botf;int vat=1;std::vector<std::string> n;std::vector<Token> c;
              Token nodes=node;
              type=nodes.children.back().value;
-               if(nodes.children.back().type==TokenType::NAMESPACELIKE) nodes.children.back().type=TokenType::TYPE;
+           /*  Token nspce_type = node.children.back();bool isnsType=false; //指標必免值覆蓋
+            if(nodes.children.back().type==TokenType::NAMESPACELIKE){ std::cout<<"gyhuji\n";
+while (!nspce_type.children.empty()) {  nspce_type = nspce_type.children.back(); }
+           
+if(nspce_type.type==TokenType::TYPE) {isnsType=true;type=nspce_type.value;nodes.children.pop_back();} 
+}*/
+              if(nodes.children.back().type==TokenType::NAMESPACELIKE) nodes.children.back().type=TokenType::TYPE;
              for (auto child : nodes.children){
                 
                 if(child.type==TokenType::OPERATOR){optrar=child.value;}
@@ -1506,6 +1575,7 @@ int main(int argc, char* argv[]) {
                     if(optrar=="") n.push_back(child.value);else c.push_back(child);
                 }
                 if(child.type==TokenType::NAMESPACELIKE||child.type==TokenType::STRUCTLIKE){ 
+                  //  if(isnsType) continue;
                     if(optrar=="") {n.push_back(AdotBdotC(child));}else{Token dotchain={TokenType::IDENTIFIER,AdotBdotC(child),child.line_number,{}};c.push_back(dotchain);}
                 } 
                 else if(child.type==TokenType::STRING||child.type==TokenType::NUMBER||child.type==TokenType::CHAR||child.type==TokenType::INJECT){
@@ -1533,11 +1603,11 @@ int main(int argc, char* argv[]) {
                  else if(type=="char"){arga+="char "+n[i]+op+val+";";}
                  else if(what_is_struct_like.find(type)!=what_is_struct_like.end()||what_is_namespace_like.find(type)!=what_is_namespace_like.end()){
                     if(n[i].find("[]")!=std::string::npos){ n[i].pop_back();n[i].pop_back();}
-                     if(node.children.back().type==TokenType::NAMESPACELIKE){
-                         arga+=AdotBdotC(node.children.back())+" "+n[i]+op+val+";";
-                     }else{
+                   //  if(false&&node.children.back().type==TokenType::NAMESPACELIKE){
+                   //      arga+=AdotBdotC(node.children.back())+" "+n[i]+op+val+";";
+                  //   }else{
                     arga+=type+" "+n[i]+op+val+";";}
-                     }
+                   //  }
  
                 }else{
                     if(n[i].empty())  break;
@@ -1778,6 +1848,10 @@ if (!comment && svimportline.find("import ") != std::string::npos) {
     }
 
 
+    //預處理
+    for(int i=0;i<tokenstream.size();i++) {
+        for(auto& ext:tokenstream[i].children)
+        if(ext.value=="struct"&&ext.children.size()>2&&ext.children[0].value=="extension") runTokenFunc(ext);}
           
      for(int i=0;i<tokenstream.size();i++) {
         outfile << runTokenFunc(tokenstream[i]);}
