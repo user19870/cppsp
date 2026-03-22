@@ -120,7 +120,7 @@ struct der derive(cppsp.test.mytype,local,<{std::vector<int>}>){
 
 }
 ```
-* Extension : used to extend a struct
+* Extension : used to extend a struct. extension_slot("id") can provide a slot to expand(id is decided by mod writter)
 ```
 import cppsp.cpp17.base, test
 
