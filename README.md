@@ -110,6 +110,48 @@ if(true) {
 }
 for(int i=0,i<3,i++) {x[i]=0}
 ```
+## OOP
+* Inheritance : enable single and multi inheritance, use `public: a, b,c` inheritance in c++
+```
+struct local{
+    extension_slot("local")
+}
+struct der derive(cppsp.test.mytype,local,<{std::vector<int>}>){
+
+}
+```
+* Extension : used to extend a struct
+```
+import cppsp.cpp17.base, test
+
+struct local{
+    private:
+    function f1(){}
+    var v int
+    public:
+    function f2(){}
+    var outv int
+    extension_slot("local")
+}
+struct extension("local"){
+    function m1()
+    function m2()
+}
+struct extension("cppsp.test.mytype"){
+    function n1(){
+        print("test1\n")
+    }
+}
+struct extension("local"){
+    function m3(){
+        print("test2\n")
+    }
+}
+local o
+o.m3()
+cppsp.test.mytype oo
+oo.n1()
+```
 ### Warning ⚠️
 * Cannot accept any space/blank before keyword before v1.2! 
 * No multi-line before v1.3!
