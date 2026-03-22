@@ -917,6 +917,7 @@ void printToken(const Token& node, int indent=0) {
   }  
   std::unordered_map<std::string, std::string> namespace_parent;
   std::unordered_map<std::string, std::string> struct_extension;
+  std::unordered_map<std::string, bool> has_extension;
  
 std::string namespace_tree(std::string name){
 std::string result;
@@ -1147,7 +1148,8 @@ void registfunckeyword(){
             if(child.value=="{"&&isExten){
                   for( auto& cont:child.children) if(cont.value!="}") result+=singletoken(cont,";").value;  }
          }
-         if(isExten){struct_extension[struc]+=result;result="";}
+         if(isExten){if(!has_extension[struc+result])
+            struct_extension[struc]+=result;has_extension[struc+result]=true;result="";}
         return result+"\n";
      });
      registerfunc("@custom",[](const Token& node){
@@ -1191,8 +1193,14 @@ void registfunckeyword(){
     
  
      registerfunc("package",[](const Token& node){  return "";});
-     registerfunc("impl",[](const Token& node){  return "";});
 
+}
+void find_slot(const Token& node){
+    Token ext=node;
+     if(ext.value=="struct"&&ext.children.size()>2&&ext.children[0].value=="extension") runTokenFunc(ext);
+        for (const auto& child : node.children) {
+        find_slot(child);
+    }
 }
 // ======token區域=======
 //註解
@@ -1849,9 +1857,7 @@ if (!comment && svimportline.find("import ") != std::string::npos) {
 
 
     //預處理
-    for(int i=0;i<tokenstream.size();i++) {
-        for(auto& ext:tokenstream[i].children)
-        if(ext.value=="struct"&&ext.children.size()>2&&ext.children[0].value=="extension") runTokenFunc(ext);}
+    for(int i=0;i<tokenstream.size();i++) {find_slot(tokenstream[i]);}
           
      for(int i=0;i<tokenstream.size();i++) {
         outfile << runTokenFunc(tokenstream[i]);}
