@@ -20,10 +20,10 @@ jobs:
       - name: Compile
         run: |
          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-          g++ cppsp_compiler.cpp -Os -s -std=c++17 -o cppsp_compiler_linux.delete_linux -static
+          g++ cppsp.cpp -Os -s -std=c++17 -o cppsp_linux.delete_linux -static
         
           else
-           clang++ cppsp_compiler.cpp -Os -std=c++17 -o cppsp_compiler_mac.delete_mac
+           clang++ cppsp.cpp -Os -std=c++17 -o cppsp_mac.delete_mac
             fi
 
  
@@ -31,4 +31,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name:  ${{ matrix.os }}-binary
-          path: cppsp_compiler_*
+          path: cppsp_*
