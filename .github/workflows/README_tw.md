@@ -2,30 +2,29 @@
 cppsp是一個轉譯式語言(原始碼轉原始碼)，可以把.cppsp檔案轉成.cpp並編譯、執行，是單人開發的實驗性語言，不適合大專案使用。此cppsp與c++ server pages無關。
 ## 安裝
 * 準備c++編譯器(gcc/clang)並設定到環境變數，讓cppsp可以呼叫g++、clang++指令
-* [到官網](https://github.com/user19870/cppsp)下載cppsp_compiler.exe或linux、mac版本或自己編譯
-* 可以(不強制)把cppsp_compiler所在資料夾設定到環境變數
+* [到官網](https://github.com/user19870/cppsp)下載cppsp.exe或linux、mac版本或自己編譯
+* 可以(不強制)把cppsp所在資料夾設定到環境變數
 * 下載linux/mac版本時記得刪除後面的_linux.delete_linux、_mac.delete_mac
-* (可選)修改cppsp_compiler.exe(或cppsp_compiler)名稱成任意名稱來更改編譯指令，例如改成cppsp、abcdef....
+* (可選)修改cppsp.exe名稱成任意名稱來更改編譯指令，例如改成cppsp、abcdef....
 * 使用curl指令下載:
 #### Windows:
 ``` 
-curl -L -o cppsp_compiler.exe https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_compiler.exe
+curl -L -o cppsp.exe https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp.exe
 ```
 #### Linux:
 ```
-  curl -L -o cppsp_compiler https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_compiler_linux.delete_linux
+  curl -L -o cppsp https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_linux.delete_linux
 ```
 #### Mac:
 ```
-  curl -L -o cppsp_compiler https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_compiler_mac.delete_mac
+  curl -L -o cppsp https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_mac.delete_mac
 ```
-# 使用方法
 * 使用cmd、控制台編譯.cppsp檔
-* **`cppsp_compiler mod.cppsp -header`** (產生.h檔案並註解掉int main....)
-* **`cppsp_compiler new project`** (產生include.ini、lib.ini、module.ini、project.cppsp並把當前路徑設定到三個ini當中)
+* **`cppsp mod.cppsp -header`** (產生.h檔案並註解掉int main....)
+* **`cppsp new project`** (產生include.ini、lib.ini、module.ini、project.cppsp並把當前路徑設定到三個ini當中)
 
 ```
-cppsp_compiler script.cppsp( 如果沒設定到環境改成.\cppsp_compiler.exe or c:\...\cppsp_compiler.exe)
+cppsp script.cppsp( 如果沒設定到環境改成.\cppsp.exe or c:\...\cppsp.exe)
 ```
 * 使用include.ini、lib.ini設定c++的include/lib資料夾
  ```
@@ -41,7 +40,7 @@ module.ini:C:...\modfolder1,c:...\modfolder2
 * 可以用 @inject and @function 注入c++程式碼
 * 使用var...type宣告
 * 能在關鍵字和全域控制變數
-* 可以用utf8替代原來的檔名來呼叫:`cppsp_compiler \xe9\x80\x99\xe6\x98\xaf\x20\xe4\xb8\xad\xe6\x96\x87\x68\x75\x20\x6b\x6f\x6c\x20\x20\x70\xe6\xaa\x94\xe6\xa1\x88\x2e\x63\x70\x70\x73\x70` 
+* 可以用utf8替代原來的檔名來呼叫:`cppsp \xe9\x80\x99\xe6\x98\xaf\x20\xe4\xb8\xad\xe6\x96\x87\x68\x75\x20\x6b\x6f\x6c\x20\x20\x70\xe6\xaa\x94\xe6\xa1\x88\x2e\x63\x70\x70\x73\x70` 
 * 可以編譯utf8編碼的原始檔名(已經盡力，可能還是有些裝置無法運作)
 ## 關鍵字
 * `#useclang` 或 `#usegcc` : 使用clang/gcc編譯
@@ -70,7 +69,7 @@ function [std::pow,std::sort,abs,sqrt] // 註冊來自c++的函數但具有模�
 subs(int ,int a,int b)
 ```
 - `use`:使用命名空間例如 use a.b.c，@custom產生的語法也會被use影響
- - use a.b.c->d 可以只用a.b.c裡面的d，如struct/function/其他東西，
+ - use a.b.c->d 可以只用a.b.c裡面的d，如struct/function/其他東西
 * `//`:註解
 ## 語法
 * 一行控制一個變數或用逗號隔開
@@ -105,6 +104,48 @@ if(true) {
   x[0]=4
 }
 for(int i=0,i<3,i++) {x[i]=0}
+```
+## 物件導向
+* Inheritance :允許單繼承和多重繼承，使用c++當中的`public: a,b,c`繼承方式
+```
+struct local{
+    extension_slot("local")
+}
+struct der derive(cppsp.test.mytype,local,<{std::vector<int>}>){
+
+}
+```
+* Extension : 用於半動態(最終是靜態.cpp)擴充一個struct，可以多次擴充
+```
+import cppsp.cpp17.base, test
+
+struct local{
+    private:
+    function f1(){}
+    var v int
+    public:
+    function f2(){}
+    var outv int
+    extension_slot("local")
+}
+struct extension("local"){
+    function m1()
+    function m2()
+}
+struct extension("cppsp.test.mytype"){
+    function n1(){
+        print("test1\n")
+    }
+}
+struct extension("local"){
+    function m3(){
+        print("test2\n")
+    }
+}
+local o
+o.m3()
+cppsp.test.mytype oo
+oo.n1()
 ```
 ### 注意事項 ⚠️
 * v1.2前關鍵字強制靠左沒有空格! 
