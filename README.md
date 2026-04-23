@@ -3,30 +3,30 @@ cppsp -a transpiled script-like language base on c++
 * [English](https://github.com/user19870/cppsp)
 * [中文](.github/workflows/README_tw.md)
 ## Install
-Download the cppsp_compiler.exe or compiler the sourcecode by yourself
+Download the cppsp.exe or compiler the sourcecode by yourself
 * Requirement:prepare your own c++ compiler and set it's folder to environment path(environment variable)
 * Requirement:a 64bits c++ compiler to make sure exe can be open
 * Optional: put the folder path of exe/elf/mach-o to environment
-* remember delete _mac/_linux to make cppsp_compiler works
-* (Optional) rename cppsp_compiler.exe(or cppsp_compiler) to any name you like to change compile command like:cppsp、abcdef....
+* remember delete _mac/_linux to make cppsp works
+* (Optional) rename cppsp.exe to any name you like to change compile command like:cppsp、abcdef....
 * Install from cmd/console:
 #### Windows:
 ```
-  curl -L -o cppsp_compiler.exe https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_compiler.exe
+  curl -L -o cppsp.exe https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp.exe
 ```
 #### Linux:
 ```
-  curl -L -o cppsp_compiler https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_compiler_linux.delete_linux
+  curl -L -o cppsp https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_linux.delete_linux
 ```
 #### Mac:
 ```
-  curl -L -o cppsp_compiler https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_compiler_mac.delete_mac
+  curl -L -o cppsp https://github.com/user19870/cppsp/raw/refs/heads/First/cppsp_mac.delete_mac
 ```
 ## Usage
 * Use cmd or other console to compiler .cppsp file:
-`cppsp_compiler(if not in environment path:.\cppsp_compiler.exe or c:\...\cppsp_compiler.exe) script.cppsp`
-* **`cppsp_compiler mod.cppsp -header`** will generate .h file and turn int main(){...} a comment
-* **`cppsp_compiler new project`**  : create new project with empty include.ini、lib.ini、module.ini、project.cppsp and setting current path in the three .ini
+`cppsp(if not in environment path:.\cppsp.exe or c:\...\cppsp.exe) script.cppsp`
+* **`cppsp mod.cppsp -header`** will generate .h file and turn int main(){...} a comment
+* **`cppsp new project`**  : create new project with empty include.ini、lib.ini、module.ini、project.cppsp and setting current path in the three .ini
 * Setting c++ include/lib/cppsp_mod folder by .ini file
 ```
 include.ini:C:\...\include1,c:\...\include2
@@ -43,7 +43,7 @@ module.ini:C:\...\modfolder1,c:\...\modfolder2
 * enable indentation and multi-line after v1.3
 * declare multi variables with `var`.....`type`
 * control variables inside keyword or globle
-* Can use utf8 encoding bytes as alternative of filename: `cppsp_compiler \xe9\x80\x99\xe6\x98\xaf\x20\xe4\xb8\xad\xe6\x96\x87\x68\x75\x20\x6b\x6f\x6c\x20\x20\x70\xe6\xaa\x94\xe6\xa1\x88\x2e\x63\x70\x70\x73\x70`
+* Can use utf8 encoding bytes as alternative of filename: `cppsp \xe9\x80\x99\xe6\x98\xaf\x20\xe4\xb8\xad\xe6\x96\x87\x68\x75\x20\x6b\x6f\x6c\x20\x20\x70\xe6\xaa\x94\xe6\xa1\x88\x2e\x63\x70\x70\x73\x70`
 * Enable compile filename encoded by utf8(I try my best but some devices may not work.)
 ## Keyword
 * `#useclang` or `#usegcc` : use clang++ or g++ compile command
