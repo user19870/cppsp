@@ -27,6 +27,7 @@ Download the cppsp.exe or compiler the sourcecode by yourself
 `cppsp(if not in environment path:.\cppsp.exe or c:\...\cppsp.exe) script.cppsp`
 * **`cppsp mod.cppsp -header`** will generate .h file and turn int main(){...} a comment
 * **`cppsp new project`**  : create new project with empty include.ini、lib.ini、module.ini、project.cppsp and setting current path in the three .ini
+* **`cppsp script.cppsp -dump-tree`** : show the raw ast in terminal
 * Setting c++ include/lib/cppsp_mod folder by .ini file
 ```
 include.ini:C:\...\include1,c:\...\include2
@@ -46,7 +47,7 @@ module.ini:C:\...\modfolder1,c:\...\modfolder2
 * Can use utf8 encoding bytes as alternative of filename: `cppsp \xe9\x80\x99\xe6\x98\xaf\x20\xe4\xb8\xad\xe6\x96\x87\x68\x75\x20\x6b\x6f\x6c\x20\x20\x70\xe6\xaa\x94\xe6\xa1\x88\x2e\x63\x70\x70\x73\x70`
 * Enable compile filename encoded by utf8(I try my best but some devices may not work.)
 ## Keyword
-* `#useclang` or `#usegcc` : use clang++ or g++ compile command
+* `#useclang` , `#usegcc` or `#usecl`  : use clang++ , g++ or msvc compile command
 * `@command("...")`: add command when compile like:-Os、-m64
 * `#overwrite`:make `@command()` overwrite g++ .... or clang++ compile command like `@command("g++ -Os -m64 -nostdlib  -shared   -o dll.dll dll.cpp")` and add "*/"  after int main(){..} also add "/\*" in front of int main(){..} 
 *  `#skipcompile` : skip g++/clang++ compile and directly run output
@@ -69,12 +70,20 @@ function [std::pow,std::sort,abs,sqrt] // will regist functions from c++
 * [`struct S{...}`](example/structtest.cppsp) : define a structure and the name of structure will become a type ,so can use something like var....S. If write `struct a b c`without `{}` a ,b, and c will become type but won't generate any c++ code
 - [`@custom xxx("...",<{...}>,...)`](https://github.com/user19870/cppsp/blob/First/example/customSyntax.cppsp) : ＠custom can let users write own syntaxs. it is a transpile-time pattern-driven code generator with nested templates, namespace-scoped features **"..." can generate code, <{...}> is similar to it but will become a placeholder and replaced by parameter when the custom syntax is called.** Code will generate in global and the inner of some cppsp keywords. ` namespace n{ @custom.... }`
   -  If there is any "＠" is in ＠custom like `＠custom vec＠mn("std::vector<",<{type}>,">") `  vec＠mn(...) will generate code in main(){....}
+  -   support abc、abc()、abc(){}、abc{} . And the usage of {} is the same as if、for、else
 ```
 @custom subs(<{T}>," sub(",<{T a}>,",",<{T b}>,")"," {return a-b;}")
 subs(int ,int a,int b)
+///////
+@custom lamda@cap("auto ",<{name}>,"=[",<{=}>,"](",<{void}>,")")
+function[x]
+ lamda@cap(x){
+    
+    return 1
+ }
 ```
 - `use` :  use namespaces like :`use a.b.c`. "xxx" from @custom xxx(...) also affected by `use`
-   - `use a.b.c->d` can use function/struct/other in namespace a.b.c but not use the whole namespace  
+   - `use a.b.c->d` can use function/struct/other in namespace a.b.c but not use the whole namespace
 * `//`:comment
 ## Syntax
 * control variables in cppsp once a line or separate by `;`
@@ -110,6 +119,7 @@ if(true) {
 }
 for(int i=0,i<3,i++) {x[i]=0}
 ```
+* operator `..` : similar to  "." but use for method chaining like `s..c_str()` or `obj.f1()..f2()`   (s is var in cppsp but object in c++)
 ## OOP
 * Inheritance : enable single and multi inheritance, use `public: a, b,c` inheritance in c++
 ```
