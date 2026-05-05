@@ -26,7 +26,8 @@ extern "C" BOOL __stdcall SetConsoleCP(UINT wCodePageID);
 //檢查dll依賴:objdump -p cppsp_compiler.exe | findstr ".dll" 
 //備忘錄:設計匿名函數lamda(x,=y,&z,type g,{...})，x是變數名無須也不能提前宣告，type ...是參數，=/& ...是傳值，{...}是內容
 namespace fs = std::filesystem;
-bool Ifiostream=0;bool commentInReg=false;bool shouldInjectFuction=true;
+bool Ifiostream=0;bool commentInReg=false;bool shouldInjectFuction=true;bool Last_is_double_dot=false;
+size_t linenumer_of_mod=1;
 // ====== 新增：萬用語法指令註冊器 ======
 std::unordered_map<std::string, std::function<std::string(const std::string&)>> cpsCommands;
 std::unordered_map<std::string, std::string>func_head_end ;
@@ -91,7 +92,7 @@ static const std::vector<std::string> operators = {
     "&=", "|=", "^=",
     "++", "--",
     "=", "+", "-", "*", "/", "%",
-    "&", "|", "^", "!", "<", ">","::",":"
+    "&", "|", "^", "!", "<", ">","::",":",".."
 };
 
 std::vector<Token> tokenstream;
@@ -118,6 +119,7 @@ Token tokenizeFile(std::istream& funcfile,size_t lineno = 1) {
     );
 
     Token root{TokenType::ROOT, "", 0, {}};
+    
 
     size_t i = 0;
      
@@ -145,9 +147,10 @@ Token tokenizeFile(std::istream& funcfile,size_t lineno = 1) {
               ((src[idx] >= 'a' && src[idx] <= 'z') ||
                (src[idx] >= 'A' && src[idx] <= 'Z') ||
                (src[idx] >= '0' && src[idx] <= '9') ||
-               src[idx] == '_' || src[idx] == '@' || src[idx] == '#'||src[idx]==':'||src[i]=='.')) {
+               src[idx] == '_' || src[idx] == '@' || src[idx] == '#'||src[idx]==':'||(src[idx]=='.'&&src[idx+1]!='.'))) {
                 if(src[idx]==':'&&src[idx+1]==':'){id+="::";idx+=2;continue;}
-                if(src[idx]=='.'){idx++;break;;}
+                if(src[idx]=='.'&&src[idx+1]=='.'){idx+=2;continue;}
+                if(src[idx]=='.'&&src[idx+1]!='.'){idx++;break;;}
             id += src[idx++];
         }
 
@@ -169,8 +172,9 @@ auto justconnectidentifier = [&](size_t& idx) -> Token {
               ((src[idx] >= 'a' && src[idx] <= 'z') ||
                (src[idx] >= 'A' && src[idx] <= 'Z') ||
                (src[idx] >= '0' && src[idx] <= '9') ||
-               src[idx] == '_' || src[idx] == '@' || src[idx] == '#'||src[idx]==':'||src[i]=='.')) {
+               src[idx] == '_' || src[idx] == '@' || src[idx] == '#'||src[idx]==':'||(src[idx]=='.'&&src[idx+1]!='.'))){
                 if(src[idx]==':'&&src[idx+1]==':'){id+="::";idx+=2;continue;}
+                if(src[idx]=='.'&&src[idx+1]=='.'){idx+=2;continue;}
                  
             id += src[idx++];
         }
@@ -195,10 +199,12 @@ auto justconnectidentifier = [&](size_t& idx) -> Token {
         }
         return {TokenType::NUMBER, num, lineno, {}};
     };
-
+bool HasSetupLine=false;
     while (i < src.size()) {
         skipWhitespace(i);
         if (i >= src.size()) break;
+        
+        if(lineno==linenumer_of_mod&&!HasSetupLine){lineno=1;HasSetupLine=true;}
 
         //單行判斷的關鍵字類似import a,b,c...
         std::vector<std::string> regkw={"import","from ","use","package"};
@@ -227,6 +233,7 @@ auto justconnectidentifier = [&](size_t& idx) -> Token {
                 comment += src[i++];
             }}else{comment+="/*";i+=2;
                 while (i < src.size()) {
+                    if (src[i] == '\n') lineno++;
                     if(src[i]=='*'&&src[i+1]=='/'){comment+="*/";i+=2;break;}
                 comment += src[i++];
             }
@@ -250,7 +257,8 @@ auto justconnectidentifier = [&](size_t& idx) -> Token {
                 }
                    
                 
-                bool ifstrend;if(src[i+1]==')'||src[i+1]==','||src[i+1]==' '||src[i+1]=='\n') ifstrend=true; else ifstrend=false;
+                bool ifstrend;if(src[i+1]==')'||src[i+1]==','||src[i+1]==' '||src[i+1]=='\n'
+                ||(src[i+1]=='.'&&src[i+2]=='.')) ifstrend=true; else ifstrend=false;
                    
                    if (src[i] == '"'&&ifstrend) {
                     str += '"';
@@ -394,6 +402,7 @@ else   {
         if (src.compare(i, 2, endStr) == 0&&(src[i+2]=='\n'||!src[i+2])) {
             depth--;
             i += 3;
+            lineno++;
             continue;
         }
 
@@ -533,7 +542,8 @@ if (matched) continue;
         // 識別字
         if ((src[i] >= 'a' && src[i] <= 'z') ||
             (src[i] >= 'A' && src[i] <= 'Z') ||
-            src[i] == '_' || src[i] == '@' || src[i] == '#'||src[i]==':'||src[i]=='.') {int depth=0;
+            src[i] == '_' || src[i] == '@' || src[i] == '#'||src[i]==':'||(src[i]=='.'&&src[i+1]!='.')){int depth=0;
+                 
                 Token whole=justconnectidentifier(i),node;std::stringstream ss(whole.value);std::string nod;i-=whole.value.size();
                 while(getline(ss,nod,'.')){ depth++;
                     
@@ -656,13 +666,18 @@ std::string sumLeftbrackets(const Token& node) {
            k.value=it->second(node);
         }return k.value; }
 
-if(node.type==TokenType::funcIDENTIFIER&&!node.children.empty()){
+if(node.type==TokenType::funcIDENTIFIER){
 
          auto cusit =custom_command_arg.find(node.value);
         if(cusit!=custom_command_arg.end()){  
-            std::vector<Token> templa=cusit->second;std::vector<size_t> args;Token out;bool hasback=false;std::string tmp;
+            std::vector<Token> templa=cusit->second;std::vector<size_t> args;Token out;bool hasback=false;std::string tmp; 
+            std::string argcont="{";bool hasBlock=false;
             for(size_t pos=0;pos<templa.size();pos++){if(templa[pos].type==TokenType::INJECT)args.push_back(pos);}
-            for(size_t i=0,j=0;i<node.children[0].children.size();i++){ Token cur=node.children[0].children[i];cur.value=singletoken(cur,",").value;
+
+            for( size_t k=0; k<node.children.size(); k++){ 
+            for(size_t i=0,j=0;!node.children.empty()&&i<node.children[k].children.size();i++){
+                if(node.children[k].value=="("){
+                Token cur=node.children[k].children[i];cur.value=singletoken(cur,",").value;
                 if(cur.value!="<{"&&cur.value!="}>"){
                      if(cur.value=="{"){ for(auto& inside:cur.children)cur.value+=singletoken(inside,";").value;}
                     if(cur.value==","||cur.value==")"){j++;tmp="";continue;}else{tmp+=" "+cur.value;}
@@ -672,8 +687,24 @@ if(node.type==TokenType::funcIDENTIFIER&&!node.children.empty()){
                    
                 }
             }
+            if(node.children[k].value=="{"){hasBlock=true;
+                    Token cont=node.children[k].children[i];cont.value=singletoken(cont,";").value;
+
+                    if(cont.value=="<{"||cont.value=="}>"||cont.type==TokenType::COMMENT){continue;}
+                    if(cont.value=="("){for(auto& p:cont.children){cont.value+= singletoken(p,"").value;}}
+                    argcont+=cont.value;
+                    if(cont.type==TokenType::IDENTIFIER||cont.type==TokenType::STRING||cont.type==TokenType::NUMBER
+                    ||cont.type==TokenType::CHAR||cont.type==TokenType::INJECT||cont.type==TokenType::OPERATOR||cont.value=="("
+                    ||cont.type==TokenType::funcIDENTIFIER||cont.type==TokenType::NAMESPACELIKE||cont.type==TokenType::STRUCTLIKE
+                    ){ if( node.children[k].children[i+1].value=="}"||node.children[k].children[i+1].line_number==cont.line_number+1){ argcont+=";\n";}
+                        }
+                       
+                }
+            }
+               }
            for(auto& p:templa){out.value+=p.value;}
            out.type=TokenType::INJECT;
+           out.value+=(hasBlock)?argcont:"";
          return out.value;
         }
                  
@@ -704,20 +735,26 @@ Token mergetoken(const Token& node, const std::string& afterSeper) {
     Token singletoken(const Token& node, const std::string& afterSeper) {
         Token result; bool boolkey =(node.value=="true"||node.value=="false")?true:false;
 
+      if(node.type == TokenType::OPERATOR&&node.value==".."){return {TokenType::OPERATOR,".",node.line_number,{}};}
       if(node.type == TokenType::STRING){result.type = TokenType::STRING;return node;} 
       if(node.type == TokenType::CHAR){result.type = TokenType::CHAR;return node;} 
       if(node.type == TokenType::NUMBER){result.type = TokenType::NUMBER; return node;}
-      if(node.type == TokenType::OPERATOR){result.type = TokenType::NUMBER; return node;}
+      if(node.type == TokenType::OPERATOR){result.type = TokenType::OPERATOR;return node;}
       if(node.type == TokenType::INJECT){result.type = TokenType::INJECT; return node;}
       if(node.value=="<{"||node.value=="}>" ){return result;}
       if(node.value=="{"){result.value+=sumLeftbrackets(node);return result;}
-      if(node.type==TokenType::funcIDENTIFIER&&!node.children.empty()){
+      if(node.type==TokenType::funcIDENTIFIER){
 
          auto cusit =custom_command_arg.find(node.value);
         if(cusit!=custom_command_arg.end()){  
             std::vector<Token> templa=cusit->second;std::vector<size_t> args;Token out;bool hasback=false;std::string tmp;
+             std::string argcont="{";bool hasBlock=false;
             for(size_t pos=0;pos<templa.size();pos++){if(templa[pos].type==TokenType::INJECT)args.push_back(pos);}
-            for(size_t i=0,j=0;i<node.children[0].children.size();i++){ Token cur=node.children[0].children[i];cur.value=singletoken(cur,",").value;
+
+              for( size_t k=0; k<node.children.size(); k++){
+            for(size_t i=0,j=0;!node.children.empty()&&i<node.children[k].children.size();i++){
+                if(node.children[k].value=="("){
+                   Token cur=node.children[k].children[i];cur.value=singletoken(cur,",").value;
                 if(cur.value!="<{"&&cur.value!="}>"){
                      if(cur.value=="{"){ for(auto& inside:cur.children)cur.value+=singletoken(inside,";").value;}
                     if(cur.value==","||cur.value==")"){j++;tmp="";continue;}else{tmp+=" "+cur.value;}
@@ -725,14 +762,32 @@ Token mergetoken(const Token& node, const std::string& afterSeper) {
                      
                    if(!hasback){templa[args[j]].value=tmp;} else{templa[args[j]].value+=tmp;}
                    
+                } 
                 }
+
+                if(node.children[k].value=="{"){hasBlock=true;
+                    Token cont=node.children[k].children[i];cont.value=singletoken(cont,";").value;
+
+                    if(cont.value=="<{"||cont.value=="}>"||cont.type==TokenType::COMMENT){continue;}
+                    if(cont.value=="("){for(auto& p:cont.children){cont.value+= singletoken(p,"").value;}}
+                    argcont+=cont.value;
+                    if(cont.type==TokenType::IDENTIFIER||cont.type==TokenType::STRING||cont.type==TokenType::NUMBER
+                    ||cont.type==TokenType::CHAR||cont.type==TokenType::INJECT||cont.type==TokenType::OPERATOR||cont.value=="("
+                    ||cont.type==TokenType::funcIDENTIFIER||cont.type==TokenType::NAMESPACELIKE||cont.type==TokenType::STRUCTLIKE
+                    ){ if( node.children[k].children[i+1].value=="}"||node.children[k].children[i+1].line_number==cont.line_number+1){ argcont+=";\n";}
+                        }
+                       
+                }
+                
             }
+        }
            for(auto& p:templa){out.value+=p.value;}
            out.type=TokenType::INJECT;
+           out.value+=(hasBlock)?argcont:"";
          return out;
         }
                  bool iftemplate=false;  for(auto& child:node.children){  if(child.value!="(")iftemplate=true;}
-             if(!iftemplate)result.value=node.value+"(" ;else  result.value=node.value; 
+             if(!iftemplate&&!node.children.empty())result.value=node.value+"(" ;else  result.value=node.value; 
                 for(auto& child:node.children){
                     if(child.value!="("){result.value+=singletoken(child,",").value+"(";continue;}
                     for(auto& p:child.children){
@@ -790,13 +845,18 @@ std::string runTokenFunc(const Token& node) {
  
 
      auto cusit =custom_command_arg.find(node.value); 
-     if(node.type==TokenType::funcIDENTIFIER&&!node.children.empty()){
+     if(node.type==TokenType::funcIDENTIFIER){
         if(cusit!=custom_command_arg.end()){  
              if(node.value.find("@")!=std::string::npos )return "";
             std::vector<Token> templa=cusit->second; 
             std::vector<size_t> args;std::string out,tmp;bool hasback=false;
+            std::string argcont="{";bool hasBlock=false;
             for(size_t pos=0;pos<templa.size();pos++){if(templa[pos].type==TokenType::INJECT)args.push_back(pos);}
-            for(size_t i=0,j=0;i<node.children[0].children.size();i++){ Token cur=node.children[0].children[i];cur.value=singletoken(cur,",").value;
+
+            for( size_t k=0; k<node.children.size(); k++){
+            for(size_t i=0,j=0;!node.children.empty()&&i<node.children[k].children.size();i++){
+                 if(node.children[k].value=="("){
+                Token cur=node.children[k].children[i];cur.value=singletoken(cur,",").value;
                 if(cur.value!="<{"&&cur.value!="}>"){
                     if(cur.value==","||cur.value==")"){j++;tmp="";continue;}else{tmp+=" "+cur.value;}
                     if(j>=args.size()){j=0;hasback=true; }
@@ -805,7 +865,24 @@ std::string runTokenFunc(const Token& node) {
                    
                 }
             }
+
+             if(node.children[k].value=="{"){hasBlock=true;
+                    Token cont=node.children[k].children[i];cont.value=singletoken(cont,";").value;
+
+                    if(cont.value=="<{"||cont.value=="}>"||cont.type==TokenType::COMMENT){continue;}
+                    if(cont.value=="("){for(auto& p:cont.children){cont.value+= singletoken(p,"").value;}}
+                    argcont+=cont.value;
+                    if(cont.type==TokenType::IDENTIFIER||cont.type==TokenType::STRING||cont.type==TokenType::NUMBER
+                    ||cont.type==TokenType::CHAR||cont.type==TokenType::INJECT||cont.type==TokenType::OPERATOR||cont.value=="("
+                    ||cont.type==TokenType::funcIDENTIFIER||cont.type==TokenType::NAMESPACELIKE||cont.type==TokenType::STRUCTLIKE
+                    ){ if( node.children[k].children[i+1].value=="}"||node.children[k].children[i+1].line_number==cont.line_number+1){ argcont+=";\n";}
+                        }
+                       
+                }
+            }
+        }
            for(auto& p:templa){out+=p.value;}
+           out+=(hasBlock)?argcont:"";
          return out;
         }else{return "";}
     }
@@ -833,7 +910,7 @@ std::string runToken(const Token& node) {
         return "";  // 傳入整個 KEYWORD 節點
     }
 
-    if(node.type==TokenType::funcIDENTIFIER&&!node.children.empty()){
+    if(node.type==TokenType::funcIDENTIFIER){
        
      
         auto cusit =custom_command_arg.find(node.value);
@@ -842,8 +919,13 @@ std::string runToken(const Token& node) {
             if(node.value.find("@")==std::string::npos )return "";
             std::vector<Token> templa=cusit->second; 
             std::vector<size_t> args;std::string out,tmp;bool hasback=false;
+            std::string argcont="{";bool hasBlock=false;
             for(size_t pos=0;pos<templa.size();pos++){if(templa[pos].type==TokenType::INJECT)args.push_back(pos);}
-            for(size_t i=0,j=0;i<node.children[0].children.size();i++){ Token cur=node.children[0].children[i];cur.value=singletoken(cur,",").value;
+
+             for( size_t k=0; k<node.children.size(); k++){
+            for(size_t i=0,j=0;!node.children.empty()&&i<node.children[k].children.size();i++){
+                 if(node.children[k].value=="("){
+                Token cur=node.children[k].children[i];cur.value=singletoken(cur,",").value;
                 if(cur.value!="<{"&&cur.value!="}>"){
                     if(cur.value==","||cur.value==")"){j++;tmp="";continue;}else{tmp+=" "+cur.value;}
                     if(j>=args.size()){j=0;hasback=true; }
@@ -852,11 +934,27 @@ std::string runToken(const Token& node) {
                    
                 }
             }
+            if(node.children[k].value=="{"){hasBlock=true;
+                    Token cont=node.children[k].children[i];cont.value=singletoken(cont,";").value;
+
+                    if(cont.value=="<{"||cont.value=="}>"||cont.type==TokenType::COMMENT){continue;}
+                    if(cont.value=="("){for(auto& p:cont.children){cont.value+= singletoken(p,"").value;}}
+                    argcont+=cont.value;
+                    if(cont.type==TokenType::IDENTIFIER||cont.type==TokenType::STRING||cont.type==TokenType::NUMBER
+                    ||cont.type==TokenType::CHAR||cont.type==TokenType::INJECT||cont.type==TokenType::OPERATOR||cont.value=="("
+                    ||cont.type==TokenType::funcIDENTIFIER||cont.type==TokenType::NAMESPACELIKE||cont.type==TokenType::STRUCTLIKE
+                    ){ if( node.children[k].children[i+1].value=="}"||node.children[k].children[i+1].line_number==cont.line_number+1){ argcont+=";\n";}
+                        }
+                       
+                }
+            }
+        }
            for(auto& p:templa){out+=p.value;}
+           out+=(hasBlock)?argcont:"";
          return out;
         }
                bool iftemplate=false; for(auto& child:node.children){  if(child.value!="(")iftemplate=true;}
-             if(!iftemplate)result=node.value+"(" ;else  result=node.value; 
+             if(!iftemplate&&!node.children.empty())result=node.value+"(" ;else  result=node.value; 
                 for(auto& child:node.children){
                     if(child.value!="("){result+=singletoken(child,",").value+"(";continue;}
                     for(auto& p:child.children){
@@ -864,14 +962,15 @@ std::string runToken(const Token& node) {
                     result+=singletoken(p,",").value;
                 }
                 }
-                
+              if(Last_is_double_dot){Last_is_double_dot=false;return result;}  
                 return result+";";
             }
 
            if(node.type==TokenType::IDENTIFIER||node.type==TokenType::STRING||node.type==TokenType::NUMBER
                     ||node.type==TokenType::CHAR||node.type==TokenType::OPERATOR||node.type==TokenType::SEPARATOR){
-                        
-                         if(((node.value.find('.') != std::string::npos&&node.type!=TokenType::NUMBER) || (!node.children.empty() &&
+                        if(node.type==TokenType::OPERATOR&&node.value==".."){Last_is_double_dot=true;return ".";}
+                         if(((node.value.find('.') != std::string::npos&&node.type!=TokenType::NUMBER
+                        &&node.type!=TokenType::STRING) || (!node.children.empty() &&
          node.children.back().value.find('.') != std::string::npos) )) return "";//a.b.c節點跳過，另外處理
                         result+=node.value;
                     
@@ -894,6 +993,22 @@ std::string runToken(const Token& node) {
 }
 
  
+ void errorMessage(const Token& node) {
+    if(node.type==TokenType::KEYWORD||node.type==TokenType::funcKEYWORD){
+        if(node.value=="var")if(node.children.back().type!=TokenType::TYPE){
+        std::cout<<"\033[31merror: \033[0m expected \'var ... type\' on line "<<node.line_number;
+        std::exit(1);}
+    }
+    
+
+    // 遞迴子 token
+    for (const auto& child : node.children) {
+         errorMessage(child);
+    }
+
+
+   
+}
 
 std::string escapeUtf8(const std::string& s) {
     std::string out;
@@ -906,12 +1021,12 @@ std::string escapeUtf8(const std::string& s) {
 
 void printToken(const Token& node, int indent=0) {
     std::string pad(indent*2, '-');
-    std::string value=((int)node.type==0)?"root---":escapeUtf8(node.value);
+    std::string value=((int)node.type==0)?"root---":node.value;//escapeUtf8(node.value);
     std::cout << pad << "Token(type=" << (int)node.type
               << ", value=\""<< value
               << "\", line=" << node.line_number << ")\n";
      
-    for(auto& child: node.children){
+    for(auto& child: node.children){ 
         printToken(child, indent+1);
     } 
   }  
@@ -1069,7 +1184,7 @@ void registfunckeyword(){
                          cr= singletoken(child,";").value;
                     if(child.value=="<{"||child.value=="}>"||child.type==TokenType::COMMENT){continue;}
                     if(cr=="("){for(auto& p:child.children){cr+= singletoken(p,"").value;}}
-                    if(cr=="return"){cr+=" ";guesstype=true;}
+                    if(cr=="return "){cr+=" ";guesstype=true;}
                     cont+=cr;
                     if(child.type==TokenType::IDENTIFIER||child.type==TokenType::STRING||child.type==TokenType::NUMBER
                     ||child.type==TokenType::CHAR||child.type==TokenType::INJECT||child.type==TokenType::OPERATOR||child.value=="("
@@ -1154,9 +1269,14 @@ void registfunckeyword(){
      });
      registerfunc("@custom",[](const Token& node){
         std::vector<Token> args;
-         for(auto child:node.children[0].children[0].children){
-            if(child.type==TokenType::INJECT) {args.push_back(child); }
-            if(child.type==TokenType::STRING){child.value=child.value.substr(1,child.value.size()-2);args.push_back(child); }
+         for(auto& p:node.children[0].children){
+            if(p.type==TokenType::BEGIN&&p.value=="("){
+              for(auto child:p.children){
+                if(child.type==TokenType::INJECT) {args.push_back(child); }
+                if(child.type==TokenType::STRING){child.value=child.value.substr(1,child.value.size()-2);args.push_back(child); }
+                }
+            }
+            
          }
          if(!args.empty()) custom_command_arg[node.children[0].value]=args;
         return "";
@@ -1550,7 +1670,7 @@ int argc;
 #endif
  
 int main(int argc, char* argv[]) {
-    bool enableclang =false;bool skipcompile=false;bool enableoverwrite = false;
+    bool enableclang =false;bool skipcompile=false;bool enableoverwrite = false;bool enablecl = false;
     #if defined(_WIN32) || defined(_WIN64) 
             SetConsoleCP(65001);SetConsoleOutputCP(65001);
               #else
@@ -1564,6 +1684,7 @@ int main(int argc, char* argv[]) {
      registerToken("import", [](const Token& node){return "";});registerToken("#usegcc", [](const Token& node){return "";});registerToken("#useclang", [](const Token& node){return "";});   
      registerToken("@command", [](const Token& node){return "";}); registerToken("#overwrite", [](const Token& node){return "";}); 
      registerToken("#skipcompile", [](const Token& node){return "";}); 
+     registerToken("return", [](const Token& node){return "return ";});
       registerToken("var", [](const Token& node){
              std::string arga,type,optrar,cur,botf;int vat=1;std::vector<std::string> n;std::vector<Token> c;
              Token nodes=node;
@@ -1643,7 +1764,7 @@ if(nspce_type.type==TokenType::TYPE) {isnsType=true;type=nspce_type.value;nodes.
 });
 
   registerToken("print", [](const Token& node) {
-    std::string args,cur,prenum; Token curtoken;args="";bool opt=false; 
+    std::string args,cur,latestoperat; Token curtoken;args="";bool opt=false;
     std::string ifio=(Ifiostream)?";\n":");\n";int i=0;
     const auto& root= node.children[0].children;//切換到'('或'{'後面的節點
      for (const auto& child : root) {
@@ -1651,10 +1772,10 @@ if(nspce_type.type==TokenType::TYPE) {isnsType=true;type=nspce_type.value;nodes.
              if(curtoken.type==TokenType::NUMBER){ if(!opt){
                   if(stod(curtoken.value)==(int)stod(curtoken.value)){args+=(Ifiostream)?"std::cout<<"+cur:" printf(\"%d\","+cur;}
                   else args+= (Ifiostream)?"std::cout<<"+cur:" printf(\"%g\","+cur;}  else{args+=cur;} }
-             if(curtoken.type==TokenType::SEPARATOR) {  args+=ifio;opt=false;}     
+             if(curtoken.type==TokenType::SEPARATOR) {  args+=ifio;opt=false;i=0;}     
              if(curtoken.value[0]=='L') {(Ifiostream)?args+="std::wcout<<"+cur :"wprintf("+cur;}else{
                if(curtoken.type==TokenType::STRING||curtoken.type==TokenType::CHAR){ args+=(Ifiostream)?"std::cout<<"+cur:"printf(" + cur;}}
-             if(curtoken.type==TokenType::OPERATOR){  args += cur;opt=true;}
+             if(curtoken.type==TokenType::OPERATOR){args += cur;opt=true;latestoperat=cur;}
              if(curtoken.type==TokenType::INJECT){ args+=(Ifiostream)?"std::cout<<"+cur:"printf(" + cur;}
              if(curtoken.type==TokenType::IDENTIFIER){
                 if(!opt){args+=(Ifiostream)?"std::cout<<"+cur:"printf("+cur;} else{args+=cur;}}
@@ -1665,8 +1786,13 @@ if(nspce_type.type==TokenType::TYPE) {isnsType=true;type=nspce_type.value;nodes.
                          args+=(Ifiostream)?"std::cout<<"+varinside:"printf("+varinside;
                     }
             if(child.type==TokenType::funcIDENTIFIER){
-                if(i==0)args="";
-                args+="std::cout<<"+cur;    
+                 if(!opt) {
+               // if(i==0)args="";
+                if(i==0) args+="std::cout<<"+cur; else  args+=cur;
+                 }else {// if(i==0)args=""; 
+                  if(latestoperat!=".") args+=cur.substr(0,cur.size()/2-2);else args+=cur;
+               }
+            
             }
                 
                
@@ -1714,8 +1840,8 @@ registerCommand("@function","<<",">>",  [](const std::string& args) {
 });
 ////////
     if (argc < 2) {
-        std::cerr << "Usage: cppsp_compiler(if not in environment path:.\\cppsp_compiler.exe or c:\\...\\cppsp_compiler.exe) script.cppsp\ninclude.ini:C:\\...\\include1,c:\\...\\include2\nlib.ini:C:\\...\\lib1,c:\\...\\lib2\n";
-        std::cerr << "\33[93m(Optional) rename cppsp_compiler.exe(or cppsp_compiler) to any name you like to change compile command like:\33[0m\33[36mcppsp,abcdef....\33[0m\n";
+        std::cerr << "Usage: cppsp\33[93m(if not in environment path:.\\cppsp.exe or c:\\...\\cppsp.exe)\33[0m script.cppsp\ninclude.ini:C:\\...\\include1,c:\\...\\include2\nlib.ini:C:\\...\\lib1,c:\\...\\lib2\n";
+     //   std::cerr << "\33[93m(Optional) rename cppsp.exe(or cppsp) to any name you like to change compile command like:\33[0m\33[36mcppsp,abcdef....\33[0m\n";
         return 1;
     }
 
@@ -1786,13 +1912,15 @@ registerCommand("@function","<<",">>",  [](const std::string& args) {
    Token root = tokenizeFile(tokenfile,1);
 
    std::string modulefolder = moduleIni("module.ini",root);
+    
+   for(const auto& c:modulefolder){if(c=='\n')linenumer_of_mod++;}
   
    std::istringstream finalfile(modulefolder+tokencontent.str());
    root=tokenizeFile(finalfile,1);
  
     tokenstream.push_back(root);
 
-  
+  errorMessage(root);
 
 std::unordered_set<std::string> includedHeaders; // 紀錄已包含的標頭，避免重複
     outfile << "#include <stdio.h>\n";
@@ -1859,13 +1987,19 @@ if (!comment && svimportline.find("import ") != std::string::npos) {
     //預處理
     for(int i=0;i<tokenstream.size();i++) {find_slot(tokenstream[i]);}
           
-     for(int i=0;i<tokenstream.size();i++) {
-        outfile << runTokenFunc(tokenstream[i]);}
+     for(int i=0;i<tokenstream.size();i++) {std::string funcOut=runTokenFunc(tokenstream[i]);
+        if(funcOut.find(';')!=std::string::npos){
+            for(int j=0;j<funcOut.size();j){
+            if(funcOut[j]==';'&&funcOut[j]==funcOut[j+1])funcOut.erase(j,1);
+            else j++;
+        }}
+        outfile << funcOut;}
     
-     /*
+     for(int i=1;i<argc;i++){
     for(auto& p:tokenstream){
-       printToken(p);
-    }*/
+      if(argc>2&&strcmp(argv[i],"-dump-tree")==0) printToken(p);
+    }
+}
 
     if(enableoverwrite||gen_header) outfile << "/*";
         outfile << "int main() {\n";
@@ -1889,11 +2023,18 @@ if (!comment && svimportline.find("import ") != std::string::npos) {
         }
         if(fdcommd.find("#useclang")!= std::string::npos){enableclang=true;}
         if(fdcommd.find("#usegcc")!= std::string::npos){enableclang=false;}
+        if(fdcommd.find("usecl")!=std::string::npos
+    &&fdcommd.find("#useclang")== std::string::npos){enablecl = true;}
         if(fdcommd.find("#overwrite")!= std::string::npos){enableoverwrite=true;}
         if(fdcommd.find("#skipcompile")!= std::string::npos){skipcompile=true;}
  
     }
-    for(auto& p:tokenstream) { outfile << runToken(p);}
+    for(auto& p:tokenstream) { std::string mainOut=runToken(p);
+        if(mainOut.find(';')!=std::string::npos){
+            for(int j=0;j<mainOut.size();){
+         if(mainOut[j]==';'&&mainOut[j]==mainOut[j+1])mainOut.erase(j,1);
+         else j++;
+        }}outfile <<mainOut;}
     
 
     outfile << "\nreturn 0;\n}\n";
@@ -1923,7 +2064,15 @@ if(!enableoverwrite&&!skipcompile&&!gen_header){
                              + extraFlags + " "
                              + includeFlags + " "
                              + libFlags;
-    if(enableoverwrite) gppCommand = extraFlags + " " + includeFlags + " "  + libFlags;
+    if(enablecl){includeFlags = parseIni("include.ini", "/I");
+        libFlags = parseIni("lib.ini", "/link /LIBPATH:");
+        gppCommand = "cl \"" + cppPath.string() + "\"" + " /Fe \"" + exePath.string() + "\" "
+                             +" /EHsc "+ extraFlags + " "
+                             + includeFlags + " "
+                             + libFlags;
+    }
+                             
+    if(enableoverwrite){ gppCommand = extraFlags + " " + includeFlags + " "  + libFlags;}
      if( skipcompile||gen_header){
         gppCommand="";
      }else{
