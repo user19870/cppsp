@@ -22,7 +22,7 @@ curl -L -o cppsp.exe https://github.com/user19870/cppsp/raw/refs/heads/First/cpp
 * 使用cmd、控制台編譯.cppsp檔
 * **`cppsp mod.cppsp -header`** (產生.h檔案並註解掉int main....)
 * **`cppsp new project`** (產生include.ini、lib.ini、module.ini、project.cppsp並把當前路徑設定到三個ini當中)
-
+* **`cppsp script.cppsp -dump-tree`** : 在終端輸出原始ast結構
 ```
 cppsp script.cppsp( 如果沒設定到環境改成.\cppsp.exe or c:\...\cppsp.exe)
 ```
@@ -43,7 +43,7 @@ module.ini:C:...\modfolder1,c:...\modfolder2
 * 可以用utf8替代原來的檔名來呼叫:`cppsp \xe9\x80\x99\xe6\x98\xaf\x20\xe4\xb8\xad\xe6\x96\x87\x68\x75\x20\x6b\x6f\x6c\x20\x20\x70\xe6\xaa\x94\xe6\xa1\x88\x2e\x63\x70\x70\x73\x70` 
 * 可以編譯utf8編碼的原始檔名(已經盡力，可能還是有些裝置無法運作)
 ## 關鍵字
-* `#useclang` 或 `#usegcc` : 使用clang/gcc編譯
+* `#useclang` 或 `#usegcc` 或`#usecl` : 使用clang/gcc/msvc編譯
 * `@command("...")`: 把參數加入編譯指令:-Os、-m64
 * `#overwrite`:讓 `@command()` 覆蓋整個編譯指令: `@command("g++ -Os -m64 -nostdlib  -shared   -o dll.dll dll.cpp")` 並在 int main(){..}後分別自動加/*和*/
 * `#skipcompile` :跳過編譯直接執行結果
@@ -64,9 +64,17 @@ function [std::pow,std::sort,abs,sqrt] // 註冊來自c++的函數但具有模�
 * `struct S{...}` :定義一個結構體，結構體名稱會成為型別，所以可以使用var ... S之類的用法
 - `@custom xxx("...",<{...}>,...)`: @custom可以讓使用者自訂語法，允許巢狀模板和單層命名空間隔離，"..."內容會變成產生的程式碼，<{...}>與其類似但它會被當成佔位符號，並在呼叫時被參數替換。 `namespace n{ @custom.... }`
    - 如果有"@"在裡面， `＠custom vec＠mn("std::vector<",<{type}>,">") ` 的vec@mn的呼叫會被生成到int main(){...}裡面
+   -   支持 abc、abc()、abc(){}、abc{} 。{} 的用法跟if、for、else一樣
 ```
 @custom subs(<{T}>," sub(",<{T a}>,",",<{T b}>,")"," {return a-b;}")
 subs(int ,int a,int b)
+///////
+@custom lamda@cap("auto ",<{name}>,"=[",<{=}>,"](",<{void}>,")")
+function[x]
+ lamda@cap(x){
+    
+    return 1
+ }
 ```
 - `use`:使用命名空間例如 use a.b.c，@custom產生的語法也會被use影響
  - use a.b.c->d 可以只用a.b.c裡面的d，如struct/function/其他東西
@@ -105,6 +113,7 @@ if(true) {
 }
 for(int i=0,i<3,i++) {x[i]=0}
 ```
+* 運算子 `..` : 跟`.` 類似但用於方法鍊利如`s..c_str()` 或 `obj.f1()..f2()` (s在cppsp是變數但在c++是物件) 
 ## 物件導向
 * Inheritance :允許單繼承和多重繼承，使用c++當中的`public: a,b,c`繼承方式
 ```
