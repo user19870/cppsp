@@ -2,15 +2,20 @@ import <iostream> ,<string>  ,<winsetup.h>
 import <vector>,<unordered_map>
 package cppsp.base
  
+ struct  vector unsigned auto size_t std::vector   
 //////////io區////////////
 function set_terminal_utf8(){
 @inject(" SetConsoleOutputCP(65001);
 SetConsoleCP(65001);")
 }
 //////////字串///////////////
-function len(const string& s) int{
-    var i=0 int
-    for(<{unsigned char}> c:s){
+function[size,find,replace,empty,substr]//skip
+
+ 
+
+function  len(const string& s) int{
+    var i=0 int 
+    for(unsigned char c:s){
         if((c & 0xC0) != 0x80){i++}    // abc and 11000... 當abc是10開頭才會等於100000...(0x80)，其他分別是00、01、11
         }
     return  i
@@ -18,43 +23,96 @@ function len(const string& s) int{
 function u8slice(const string& s,int start,int length=-1) string{
     if(start<0){start+= len(s)}
     var i,bytelen,s_pos,start_pos = <{-1}>,0,<{start+length-1}>,0 int
-    if(<{s.empty()}>){return ""}
-    for(<{unsigned char}> c:s){
+    if(s..empty()){return ""}
+    for(unsigned char c:s){
         if((c & 0xC0) != 0x80){i++}
         if(i<start){start_pos++}
         if(i>=start&&i<=s_pos){bytelen++}    // abc and 11000... 當abc是10開頭才會等於100000...(0x80)，其他分別是00、01、11
         }
-        if(length==-1){bytelen=<{s.size()-start_pos;}>}
-    return  <{s.substr(start_pos,bytelen)}>
+        if(length==-1){bytelen=s..size()-start_pos;}
+    return  s..substr(start_pos,bytelen)
 }
-function u8replace(string &s,int start,int length,string newValue) {
+function u8replace(string &s,int start,int length,const string& newValue) {
     if(start<0){start+= len(s)}
     var i,bytelen,s_pos,start_pos = <{-1}>,0,<{start+length-1}>,0 int
      
-    if(<{s.empty()}>){return }
-    for(<{unsigned char}> c:s){
+    if(s..empty()){return 
+    }
+    for(unsigned char c:s){
         if((c & 0xC0) != 0x80){i++}
         if(i<start){start_pos++}
         if(i>=start&&i<=s_pos){bytelen++}    // abc and 11000... 當abc是10開頭才會等於100000...(0x80)，其他分別是00、01、11
         }
        
-     <{s.replace(start_pos,bytelen,newValue)}>
+     s..replace(start_pos,bytelen,newValue)
+}
+function u8replace(string &s,const string& oldstr,const string& newstr,int max=-1) {
+    
+size_t pos=s..find(oldstr)
+
+while(pos!=std::string::npos&&max!=0){
+    s..replace(pos,oldstr..size(),newstr)
+    if(max!=-1)max--
+    pos=s..find(oldstr,pos+newstr..size())
+}
+}
+function u8find(string &s,const string& target,int pos=0,int posend=-1)int{
+  posend=posend-pos
+    for(int i=0;i<len(s),posend!=0;i++){
+        if(i>pos)posend--
+        if(u8slice(s,i,len(target))==""){ return -1 
+            }
+        if(i>=pos&&u8slice(s,i,len(target))==target){<{return i}>
+        }
+    }
+    return -1;  
 }
 
-
-
-
-
+function u8split(string& s,const string& sepa)std::vector[std::string]{
+std::vector[std::string] res ={}
+ var lastpos,latestpos=0,<{-1}> size_t
+ var stmp string
+ while((latestpos=u8find(s,sepa,lastpos))!=-1){
+     res..push_back(u8slice(s,lastpos,latestpos-lastpos))
+    lastpos=latestpos+len(sepa)
+ }
+ res..push_back(u8slice(s,lastpos))
+return res
+}
 
 //////////容器///////////////
+/*namespace privtool{
+    @custom  tem("template<typename T> ")
 @custom vec_xxx("struct ",<{vecI}>," : std::vector<",<{int}>,"> {
     using std::vector<",<{int}>,">::vector; // 繼承所有 constructor
 };")
-struct vecI struct vecF struct vecC struct vecB struct vecS
-vec_xxx(vecI,int,int);vec_xxx(vecF,float,float);vec_xxx(vecC,char,char);vec_xxx(vecB,bool,bool);vec_xxx(vecS,string,string);
+}
 
+
+struct vecI struct vecF struct vecC struct vecB struct vecS 
+privtool.vec_xxx(vecI,int,int);privtool.vec_xxx(vecF,float,float);
+privtool.vec_xxx(vecC,char,char);privtool.vec_xxx(vecB,bool,bool);privtool.vec_xxx(vecS,string,string);
+*/
 @custom vec@mn("std::vector<",<{type}>,">")
-
+ 
+ @inject(" template<typename T>
+ using  vector =std::vector<T>
+ //struct  vector {
+ //function [push_back,size,at]
+ //}
+ ")
+ 
+  
 @custom vec("std::vector<",<{type}>,">")
 
+ ////////vector操作//////////
+use cppsp.base
+ function  len(vec(int) v) int{   return  v..size();}
+  function  len(vec(float) v) int{   return  v..size();}
+   function  len(vec(char) v) int{   return  v..size();}
+    function  len(vec(bool) v) int{   return  v..size();}
+     function  len(vec(string) v) int{   return  v..size();}
+ @custom mn_push_create("auto mn_push= [](auto &p,const ",<{t}>," &v){ p.push_back(v);};") //skip
+ function [mn_push]
+ mn_push_create(auto)
  

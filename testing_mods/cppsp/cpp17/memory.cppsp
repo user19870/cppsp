@@ -1,0 +1,8 @@
+import <memory>
+
+struct extension("cppsp.test.mytype"){
+    function n1(){
+        print("test1\n")
+    }
+}
+ @custom make_shared@mn("auto",<{varname}>,"=std::make_shared<",<{type}>,">(",<{size}>,")")

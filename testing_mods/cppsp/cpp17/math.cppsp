@@ -12,3 +12,4 @@ import <math.h>
        _single_param(double,floor,double,floor)  _single_param(double,ceil,double,ceil)  _single_param(double,round,double,round)
        _double_param(double,pow,double,double,pow)
 
+var PI = 3.141592653589793 float 
