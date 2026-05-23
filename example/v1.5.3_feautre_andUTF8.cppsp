@@ -1,0 +1,31 @@
+ import cppsp.cpp17.base,cppsp.cpp17.math
+ 
+ use cppsp,std
+ 
+function[pop_back]
+
+@custom lamda@cap("auto ",<{name}>,"=[",<{=}>,"](",<{void}>,")")
+ var s="這字是，。字，字串字" string
+ var vs vector[string]
+ vs=base.u8split(s,"，") 
+
+ 
+function[x]
+ lamda@cap(x){
+    
+    return 1
+ }
+ function t(){
+   return 1
+ }
+
+ var s2 =s string
+   cppsp.base.u8replace(s2,"字","o")
+   cppsp.base.u8replace(s2,"字","o",1)
+   cppsp.base.u8replace(s2,2,1,"新")
+ //  s2..replace(2,1,"新")  from c++ replace 
+ 
+ for( string& st:vs){ print(st,"\n")
+ }
+
+ print(s2)
